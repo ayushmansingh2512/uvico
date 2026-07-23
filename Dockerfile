@@ -1,5 +1,5 @@
 # Step 1: Build the Go binary using Alpine Linux
-FROM golang:1.22-alpine AS builder
+FROM golang:alpine AS builder
 
 # Install gcc and musl-dev (required for SQLite CGo/ModernC support)
 RUN apk add --no-cache gcc musl-dev
@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main cmd/main.go
 FROM alpine:latest  
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+WORKDIR /app
 
 # Copy compiled binary from builder stage
 COPY --from=builder /app/main .
