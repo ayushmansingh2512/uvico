@@ -48,6 +48,7 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	rawTmpl := `
+	<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 	<style>
 		/* ======================================================
 		   ICHIBAN LUXURY DARK DESIGN + FIXED UI
