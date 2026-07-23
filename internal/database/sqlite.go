@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	_ "modernc.org/sqlite"
@@ -80,6 +81,13 @@ func Decrypt(cipherText string) (string, error) {
 }
 
 func InitDB(dbPath string) *sql.DB {
+	dir := filepath.Dir(dbPath)
+	if dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			log.Printf("⚠️ Directory creation warning: %v\n", err)
+		}
+	}
+
 	var err error
 	DB, err = sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -88,10 +96,14 @@ func InitDB(dbPath string) *sql.DB {
 
 	_, err = DB.Exec("PRAGMA journal_mode=WAL;")
 	if err != nil {
-		log.Fatalf("Failed to set WAL mode: %v", err)
+		fmt.Printf("⚠️ WAL mode notice: %v. Switching to DELETE mode...\n", err)
+		_, err = DB.Exec("PRAGMA journal_mode=DELETE;")
+		if err != nil {
+			log.Fatalf("Failed to set journal mode: %v", err)
+		}
 	}
 
-	fmt.Println("SQLite Database connected successfully with WAL mode!")
+	fmt.Println("SQLite Database connected successfully!")
 
 	createTables()
 	return DB
@@ -139,7 +151,7 @@ func GetContextForApp(appID string, userQuery string) string {
 
 	// Targeted Search for specific Department/Contact/Query
 	query := `
-		SELECT category, title, content_chunk, COALESCE(contact_number, ''), COALESCE(email_address, '')
+		SELECT category, title, content_chunk
 		FROM knowledge_assets
 		WHERE app_id = ? AND (
 			title LIKE ? OR 
@@ -157,17 +169,10 @@ func GetContextForApp(appID string, userQuery string) string {
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
-			var category, title, content, phone, email string
-			if err := rows.Scan(&category, &title, &content, &phone, &email); err == nil {
+			var category, title, content string
+			if err := rows.Scan(&category, &title, &content); err == nil {
 				hasResults = true
-				contextBuilder.WriteString(fmt.Sprintf("- Category: %s | Title: %s\n  Details: %s\n", category, title, content))
-				if phone != "" {
-					contextBuilder.WriteString(fmt.Sprintf("  Phone/Ext: %s\n", phone))
-				}
-				if email != "" {
-					contextBuilder.WriteString(fmt.Sprintf("  Email: %s\n", email))
-				}
-				contextBuilder.WriteString("\n")
+				contextBuilder.WriteString(fmt.Sprintf("- Category: %s | Title: %s\n  Details: %s\n\n", category, title, content))
 			}
 		}
 	}
@@ -175,16 +180,16 @@ func GetContextForApp(appID string, userQuery string) string {
 	// Fallback: If no direct keyword match, fetch default assets for this app
 	if !hasResults {
 		fallbackQuery := `
-			SELECT category, title, content_chunk, COALESCE(contact_number, ''), COALESCE(email_address, '')
+			SELECT category, title, content_chunk
 			FROM knowledge_assets WHERE app_id = ? LIMIT 10;
 		`
 		fallbackRows, err := DB.Query(fallbackQuery, appID)
 		if err == nil {
 			defer fallbackRows.Close()
 			for fallbackRows.Next() {
-				var category, title, content, phone, email string
-				if err := fallbackRows.Scan(&category, &title, &content, &phone, &email); err == nil {
-					contextBuilder.WriteString(fmt.Sprintf("- Title: %s (%s)\n  Details: %s\n  Phone: %s | Email: %s\n\n", title, category, content, phone, email))
+				var category, title, content string
+				if err := fallbackRows.Scan(&category, &title, &content); err == nil {
+					contextBuilder.WriteString(fmt.Sprintf("- Title: %s (%s)\n  Details: %s\n\n", title, category, content))
 				}
 			}
 		}
