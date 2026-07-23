@@ -34,10 +34,10 @@ func main() {
 		http.ServeFile(w, r, "knowledge/test_portfolio.html")
 	})
 
-	// Dynamic Port for Hugging Face Spaces
+	// Dynamic Port for Render / Cloud Deployment
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "7860"
+		port = "10000"
 	}
 
 	fmt.Printf("Starting Universal Copilot Engine on :%s...\n", port)

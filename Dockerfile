@@ -26,8 +26,9 @@ WORKDIR /app
 COPY --from=builder /app/main .
 COPY --from=builder /app/knowledge ./knowledge
 
-# Expose port 8080
-EXPOSE 8080
+# Expose port 10000 for Render
+EXPOSE 10000
+ENV PORT=10000
 
 # Run the app
 CMD ["./main"]
