@@ -280,6 +280,7 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			      hx-swap="beforeend" 
 			      hx-on::before-request="document.getElementById('copilot-send-btn').disabled = true; document.getElementById('copilot-send-btn').innerText = 'Thinking...';"
 			      hx-on::after-request="this.reset(); document.getElementById('copilot-send-btn').disabled = false; document.getElementById('copilot-send-btn').innerText = 'Send'; var elem = document.getElementById('copilot-chat-history'); elem.scrollTop = elem.scrollHeight;">
+				<input type="hidden" name="app_id" value="{{APP_ID}}" />
 				<input type="text" id="copilot-msg-input" name="message" placeholder="Ask anything..." class="copilot-input" />
 				<button id="copilot-send-btn" type="submit" class="copilot-send-btn">Send</button>
 			</form>
@@ -368,6 +369,15 @@ func HandleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	appID := r.URL.Query().Get("app_id")
+	if appID == "" {
+		appID = r.FormValue("app_id")
+	}
+
+	if appID == "" {
+		http.Error(w, "Missing app_id parameter", http.StatusBadRequest)
+		return
+	}
+
 	userMsg := r.FormValue("message")
 
 	if strings.TrimSpace(userMsg) == "" {

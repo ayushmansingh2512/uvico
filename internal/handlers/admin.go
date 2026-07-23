@@ -177,8 +177,17 @@ func HandleIngest(w http.ResponseWriter, r *http.Request) {
 			<h2>🎉 Chatbot Configured for "%s"!</h2>
 			<p>Your PDF data was parsed and your Gemini API Key is safely encrypted using AES-256.</p>
 			
-			<p><strong>Copy & Paste this 2-line code snippet into your HTML/Portfolio website:</strong></p>
+			<p><strong>Option 1: iFrame Method (Easiest - Works everywhere without HTMX):</strong></p>
+			<div class="code-box">
+&lt;iframe<br>
+&nbsp;&nbsp;src="%s/copilot/embed?app_id=%s"<br>
+&nbsp;&nbsp;style="position: fixed; bottom: 20px; right: 20px; z-index: 99999; border: none; width: 380px; height: 520px; background: transparent;"<br>
+&nbsp;&nbsp;allowtransparency="true"&gt;<br>
+&lt;/iframe&gt;
+			</div>
 
+			<br>
+			<p><strong>Option 2: HTMX Method:</strong></p>
 			<div class="code-box">
 &lt;script src="https://unpkg.com/htmx.org@1.9.12"&gt;&lt;/script&gt;<br>
 &lt;aside id="ai-copilot-root"<br>
@@ -193,5 +202,5 @@ func HandleIngest(w http.ResponseWriter, r *http.Request) {
 		</div>
 	</body>
 	</html>
-	`, appID, hostURL, appID)
+	`, appID, hostURL, appID, hostURL, appID)
 }
