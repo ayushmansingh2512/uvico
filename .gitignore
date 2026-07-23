@@ -1,0 +1,11 @@
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+
+# Python pycache
+__pycache__/
+*.pyc
+
+# Environment files
+.env
