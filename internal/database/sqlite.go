@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	_ "github.com/tursodatabase/libsql-client-go/libsql"
 	_ "modernc.org/sqlite"
 )
 
@@ -81,33 +82,57 @@ func Decrypt(cipherText string) (string, error) {
 }
 
 func InitDB(dbPath string) *sql.DB {
-	dir := filepath.Dir(dbPath)
-	if dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			log.Printf("⚠️ Directory creation warning: %v\n", err)
-		}
-	}
+	tursoURL := os.Getenv("TURSO_DATABASE_URL")
+	tursoToken := os.Getenv("TURSO_AUTH_TOKEN")
 
 	var err error
-	DB, err = sql.Open("sqlite", dbPath)
-	if err != nil {
-		log.Fatalf("Failed to open SQLite database: %v", err)
-	}
-
-	_, err = DB.Exec("PRAGMA journal_mode=WAL;")
-	if err != nil {
-		fmt.Printf("⚠️ WAL mode notice: %v. Switching to DELETE mode...\n", err)
-		_, err = DB.Exec("PRAGMA journal_mode=DELETE;")
-		if err != nil {
-			log.Fatalf("Failed to set journal mode: %v", err)
+	if tursoURL != "" {
+		fullURL := tursoURL
+		if tursoToken != "" && !strings.Contains(fullURL, "authToken=") {
+			if strings.Contains(fullURL, "?") {
+				fullURL = fmt.Sprintf("%s&authToken=%s", fullURL, tursoToken)
+			} else {
+				fullURL = fmt.Sprintf("%s?authToken=%s", fullURL, tursoToken)
+			}
 		}
-	}
+		fmt.Printf("Connecting to Turso Cloud Database: %s...\n", tursoURL)
+		DB, err = sql.Open("libsql", fullURL)
+		if err != nil {
+			log.Fatalf("Failed to open Turso database: %v", err)
+		}
+		if err = DB.Ping(); err != nil {
+			log.Fatalf("Failed to ping Turso database: %v", err)
+		}
+		fmt.Println("⚡ Turso Cloud Database connected successfully!")
+	} else {
+		dir := filepath.Dir(dbPath)
+		if dir != "" && dir != "." {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				log.Printf("⚠️ Directory creation warning: %v\n", err)
+			}
+		}
 
-	fmt.Println("SQLite Database connected successfully!")
+		DB, err = sql.Open("sqlite", dbPath)
+		if err != nil {
+			log.Fatalf("Failed to open SQLite database: %v", err)
+		}
+
+		_, err = DB.Exec("PRAGMA journal_mode=WAL;")
+		if err != nil {
+			fmt.Printf("⚠️ WAL mode notice: %v. Switching to DELETE mode...\n", err)
+			_, err = DB.Exec("PRAGMA journal_mode=DELETE;")
+			if err != nil {
+				log.Fatalf("Failed to set journal mode: %v", err)
+			}
+		}
+
+		fmt.Println("SQLite Local Database connected successfully!")
+	}
 
 	createTables()
 	return DB
 }
+
 
 func createTables() {
 	appTable := `
