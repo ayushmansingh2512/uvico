@@ -36,11 +36,11 @@ func HandleAdminUI(w http.ResponseWriter, r *http.Request) {
 	<body>
 		<div class="form-box">
 			<h2>⚡ Universal AI Copilot</h2>
-			<p>Get a custom AI Chatbot for your portfolio/website in 1 minute. Upload your resume or details, set your Gemini key, and embed the 1-line script!</p>
+			<p>Get a custom AI Chatbot for your website, portfolio, or organization in 1 minute. Upload your knowledge doc, set your Gemini key, and embed the 2-line script!</p>
 
 			<form action="/admin/ingest" method="POST" enctype="multipart/form-data">
-				<label>1. Unique App ID (e.g. ayushman_portfolio, rahul_dev):</label>
-				<input type="text" name="app_id" placeholder="my_awesome_portfolio" required />
+				<label>1. Unique App ID (e.g. city_hospital, rahul_dev, my_company):</label>
+				<input type="text" name="app_id" placeholder="e.g. city_hospital" required />
 
 				<label>2. Set Account Security PIN (To update your data later):</label>
 				<input type="password" name="app_passcode" placeholder="Create a secret PIN..." required />
@@ -48,13 +48,13 @@ func HandleAdminUI(w http.ResponseWriter, r *http.Request) {
 				<label>3. Your Google Gemini API Key (AES-256 Encrypted & Saved):</label>
 				<input type="password" name="gemini_api_key" placeholder="AIzaSy..." required />
 
-				<label>4. Upload Resume / PDF / Knowledge Doc:</label>
+				<label>4. Upload Knowledge Doc / PDF / Resume:</label>
 				<div class="file-input-wrapper">
 					<input type="file" name="doc_file" accept=".pdf,.txt,.md" />
 				</div>
 
 				<label>Or Paste Plain Text Information:</label>
-				<textarea name="raw_text" rows="5" placeholder="Paste portfolio details, project list, bio, or contact details..."></textarea>
+				<textarea name="raw_text" rows="5" placeholder="Paste website details, FAQs, services, bio, or contact info..."></textarea>
 
 				<button type="submit">🚀 Ingest Data & Generate Embed Code</button>
 			</form>

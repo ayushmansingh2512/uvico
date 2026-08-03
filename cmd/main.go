@@ -7,6 +7,7 @@ import (
 
 	"universal-copilot/internal/database"
 	"universal-copilot/internal/handlers"
+	"universal-copilot/internal/pinger"
 )
 
 func main() {
@@ -29,7 +30,10 @@ func main() {
 	http.HandleFunc("/admin", handlers.HandleAdminUI)
 	http.HandleFunc("/admin/ingest", handlers.HandleIngest)
 
-	// 4. Register Test Route
+	// 4. Register Health / Ping Route
+	http.HandleFunc("/ping", pinger.HandlePing)
+
+	// 5. Register Test Route
 	http.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "knowledge/test_portfolio.html")
 	})
@@ -39,6 +43,9 @@ func main() {
 	if port == "" {
 		port = "10000"
 	}
+
+	// 6. Start Self-Pinging Background Service (default 30 min interval)
+	pinger.Start(port)
 
 	fmt.Printf("Starting Universal Copilot Engine on :%s...\n", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {

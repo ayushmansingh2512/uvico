@@ -165,6 +165,8 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 		.copilot-chat-history {
 			flex: 1;
 			overflow-y: auto;
+			scrollbar-width: none;
+			-ms-overflow-style: none;
 			background: #111112;
 			border: 1px solid rgba(255, 255, 255, 0.05);
 			padding: 0.75rem;
@@ -176,6 +178,10 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			display: flex;
 			flex-direction: column;
 			gap: 8px;
+		}
+
+		.copilot-chat-history::-webkit-scrollbar {
+			display: none;
 		}
 
 		.copilot-chips {
@@ -250,29 +256,11 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 	<div id="copilotWrapper" class="copilot-circle-wrapper">
 		<div class="copilot-content-wrapper">
 			<div class="copilot-header">
-				<h3>AI Copilot ({{APP_ID}})</h3>
+				<h3>AI Copilot</h3>
 			</div>
 			
 			<div id="copilot-chat-history" class="copilot-chat-history">
-				<p style="margin:0; color:#8a8a8e;">Hey there! I am Ayushman's AI Assistant. Ask me anything about his skills or projects!</p>
-			</div>
-
-			<div class="copilot-chips">
-				<button class="copilot-chip-btn"
-				        hx-post="/copilot/chat?app_id={{APP_ID}}" 
-				        hx-vals='{"message": "What is your background and key technical skills?"}' 
-				        hx-target="#copilot-chat-history" 
-				        hx-swap="beforeend">
-					👤 About & Skills
-				</button>
-
-				<button class="copilot-chip-btn"
-				        hx-post="/copilot/chat?app_id={{APP_ID}}" 
-				        hx-vals='{"message": "What are your top projects and tech stacks?"}' 
-				        hx-target="#copilot-chat-history" 
-				        hx-swap="beforeend">
-					🛠️ Top Projects
-				</button>
+				<p style="margin:0; color:#8a8a8e;">Hey there! I am an AI Assistant. Ask me anything based on the knowledge base or documents provided!</p>
 			</div>
 
 			<form class="copilot-form"
@@ -388,8 +376,8 @@ func HandleChat(w http.ResponseWriter, r *http.Request) {
 	// ✅ Updated Code:
 	contextData := database.GetContextForApp(appID, userMsg)
 	
-	prompt := fmt.Sprintf(`System Instruction: You are an AI Copilot assistant for Ayushman's portfolio ('%s').
-Analyze the provided Context Data below (retrieved from SQLite) and answer the user's question directly and concisely.
+	prompt := fmt.Sprintf(`System Instruction: You are an AI Copilot assistant for the entity/website with App ID '%s' (such as a developer, hospital, organization, business, or creator).
+Analyze the provided Context Data below (retrieved from the database) to understand who or what you are representing, and answer the user's question directly, accurately, and concisely based strictly on that context.
 
 CRITICAL FORMATTING & LANGUAGE RULES:
 1. STRICT LANGUAGE MATCHING: Respond strictly in the same language as the User Query. If the user query is written in English (e.g. "What is your background?", "Aapka intro..."), reply ONLY in plain, natural English. Never reply in Hindi script or Hinglish unless the user explicitly speaks in Hindi.
