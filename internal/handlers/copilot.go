@@ -497,8 +497,39 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			transform: translateY(-1px);
 		}
 
-		.copilot-chip-btn:active {
-			transform: scale(0.96);
+		.copilot-starter-chips {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+			margin-top: 10px;
+		}
+
+		.copilot-starter-chip {
+			background: #28282e;
+			color: #f3e9d6;
+			border: 1px solid rgba(216, 168, 74, 0.3);
+			padding: 7px 11px;
+			border-radius: 8px;
+			font-size: 0.76rem;
+			font-weight: 500;
+			cursor: pointer;
+			transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+			text-align: left;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			font-family: inherit;
+		}
+
+		.copilot-starter-chip:hover {
+			background: #34343c;
+			border-color: rgba(216, 168, 74, 0.7);
+			color: #ffffff;
+			transform: translateX(2px);
+		}
+
+		.copilot-starter-chip:active {
+			transform: scale(0.98);
 		}
 	</style>
 
@@ -509,7 +540,13 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			</div>
 			
 			<div id="copilot-chat-history" class="copilot-chat-history">
-				<p style="margin:0; color:#8a8a8e;">Hey there! I am an AI Assistant. Ask me anything based on the knowledge base or documents provided!</p>
+				<p style="margin:0; color:#94a3b8; font-size: 0.82rem; line-height: 1.4;">Hey there! I am an AI Assistant. Ask me anything or select a quick option:</p>
+				<div class="copilot-starter-chips">
+					<button type="button" class="copilot-starter-chip" onclick="quickSend('Schedule an interview / meeting with {{CLIENT_NAME}}')">📅 Schedule Meeting</button>
+					<button type="button" class="copilot-starter-chip" onclick="quickSend('What programming languages and tech stack does {{CLIENT_NAME}} use?')">💻 Tech Stack & Languages</button>
+					<button type="button" class="copilot-starter-chip" onclick="quickSend('Tell me about the key projects and engineering work of {{CLIENT_NAME}}')">🚀 Key Projects</button>
+					<button type="button" class="copilot-starter-chip" onclick="quickSend('Who is {{CLIENT_NAME}} and what is the background?')">👤 About {{CLIENT_NAME}}</button>
+				</div>
 			</div>
 
 			<form class="copilot-form"
@@ -552,6 +589,13 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			const copilotToggleIcon = document.getElementById("copilotToggleIcon");
 			const copilotIconSvg = document.getElementById("copilotIconSvg");
 			let isAnimating = false;
+
+			window.quickSend = function(text) {
+				const input = document.getElementById('copilot-msg-input');
+				const form = input.closest('form');
+				input.value = text;
+				htmx.trigger(form, 'submit');
+			};
 
 			const robotSvg = '<ellipse class="site-pet__shadow-ambient" cx="22" cy="53.5" rx="16" ry="2.6" fill="#000000" opacity="0.65"></ellipse><ellipse class="site-pet__shadow" cx="22" cy="53.5" rx="12" ry="1.8" fill="#000000" opacity="0.9"></ellipse><rect x="4" y="6" width="36" height="38" rx="5" fill="#2b2b30" stroke="rgba(216,168,74,0.3)" stroke-width="1"></rect><rect x="4" y="6" width="36" height="2" rx="1" fill="#e8c468" opacity="0.25"></rect><g class="site-pet__eyes"><rect class="site-pet__eye" x="14" y="22" width="4" height="5" rx="1" fill="#e8c468"></rect><rect class="site-pet__eye" x="26" y="22" width="4" height="5" rx="1" fill="#e8c468"></rect></g><rect class="site-pet__leg site-pet__leg--left" x="10" y="42" width="8" height="10" rx="1.5" fill="#2b2b30" stroke="rgba(216,168,74,0.3)" stroke-width="1"></rect><rect class="site-pet__leg site-pet__leg--right" x="26" y="42" width="8" height="10" rx="1.5" fill="#2b2b30" stroke="rgba(216,168,74,0.3)" stroke-width="1"></rect><rect class="site-pet__arm site-pet__arm--left" x="-5" y="17" width="8" height="17" rx="4" fill="#2b2b30" stroke="rgba(216,168,74,0.3)" stroke-width="1"></rect><g class="pet-hat" data-hat-variant="sprout"><rect x="21.2" y="-6" width="1.6" height="12" fill="#1f8a4c"></rect><ellipse cx="17" cy="-7" rx="5" ry="2.8" fill="#34d399" transform="rotate(28 17 -7)"></ellipse><ellipse cx="27" cy="-7" rx="5" ry="2.8" fill="#34d399" transform="rotate(-28 27 -7)"></ellipse></g>';
 			const closeSvg = '<line x1="12" y1="18" x2="32" y2="38" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"></line><line x1="32" y1="18" x2="12" y2="38" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"></line>';
@@ -622,7 +666,13 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 	</script>
 	`
 
+	clientName := database.GetClientNameForApp(appID)
+	if clientName == "" {
+		clientName = "Ayushman"
+	}
+
 	finalHTML := strings.ReplaceAll(rawTmpl, "{{APP_ID}}", appID)
+	finalHTML = strings.ReplaceAll(finalHTML, "{{CLIENT_NAME}}", clientName)
 	fmt.Fprint(w, finalHTML)
 }
 
