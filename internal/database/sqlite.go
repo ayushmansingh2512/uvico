@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
 	"fmt"
@@ -19,14 +20,14 @@ import (
 
 var DB *sql.DB
 
-// Secret Key for AES Encryption (Must be 32 bytes for AES-256)
+// Secret Key for AES Encryption (Always guaranteed 32 bytes for AES-256)
 func getEncryptionKey() []byte {
 	secret := os.Getenv("ENCRYPTION_SECRET")
-	if len(secret) < 32 {
-		// Fallback 32-byte default key if env is not set
-		return []byte("32-byte-long-secret-key-for-aes")
+	if secret == "" {
+		secret = "universal-copilot-default-aes-secret-key-2026"
 	}
-	return []byte(secret[:32])
+	hash := sha256.Sum256([]byte(secret))
+	return hash[:]
 }
 
 // Encrypt encrypts plain text string into Base64 encoded encrypted string
@@ -139,6 +140,7 @@ func createTables() {
 	CREATE TABLE IF NOT EXISTS applications (
 		id TEXT PRIMARY KEY NOT NULL,
 		client_name TEXT NOT NULL,
+		calendar_email TEXT NOT NULL DEFAULT '',
 		gemini_api_key TEXT NOT NULL,
 		app_passcode TEXT NOT NULL,
 		system_instruction TEXT,
@@ -166,6 +168,8 @@ func createTables() {
 
 	// Migration for existing database files
 	_, _ = DB.Exec("ALTER TABLE applications ADD COLUMN app_passcode TEXT NOT NULL DEFAULT '';")
+	_, _ = DB.Exec("ALTER TABLE applications ADD COLUMN calendar_email TEXT NOT NULL DEFAULT '';")
+	_, _ = DB.Exec("ALTER TABLE applications ADD COLUMN client_name TEXT NOT NULL DEFAULT '';")
 
 	fmt.Println("Universal Database tables initialized successfully!")
 }
@@ -226,15 +230,40 @@ func GetContextForApp(appID string, userQuery string) string {
 // GetAPIKeyForApp fetches the configured Gemini API Key from DB
 func GetAPIKeyForApp(appID string) string {
 	var key string
-	err := DB.QueryRow("SELECT gemini_api_key FROM applications WHERE id = ?", appID).Scan(&key)
+	err := DB.QueryRow("SELECT gemini_api_key FROM applications WHERE id = ?", strings.TrimSpace(appID)).Scan(&key)
 	if err != nil {
+		log.Printf("[Database] No app record found for ID '%s'", appID)
 		return ""
 	}
 	decryptedKey, err := Decrypt(key)
 	if err == nil && decryptedKey != "" {
-		return decryptedKey
+		return strings.TrimSpace(decryptedKey)
 	}
-	return key
+	if strings.HasPrefix(key, "AIzaSy") {
+		return strings.TrimSpace(key)
+	}
+	log.Printf("[Database] Warning: Stored API key for '%s' was encrypted with an older key. Re-save it in /admin.", appID)
+	return ""
+}
+
+// GetCalendarEmailForApp returns the registered Google Calendar email for this app or fallback
+func GetCalendarEmailForApp(appID string) string {
+	var email string
+	err := DB.QueryRow("SELECT calendar_email FROM applications WHERE id = ?", strings.TrimSpace(appID)).Scan(&email)
+	if err == nil && strings.TrimSpace(email) != "" {
+		return strings.TrimSpace(email)
+	}
+	return os.Getenv("CALENDAR_OWNER_EMAIL")
+}
+
+// GetClientNameForApp returns the registered client/owner name for this app or defaults to App ID
+func GetClientNameForApp(appID string) string {
+	var name string
+	err := DB.QueryRow("SELECT client_name FROM applications WHERE id = ?", strings.TrimSpace(appID)).Scan(&name)
+	if err == nil && strings.TrimSpace(name) != "" {
+		return strings.TrimSpace(name)
+	}
+	return appID
 }
 
 // InsertParsedChunk inserts chunked text into SQLite

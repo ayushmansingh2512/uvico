@@ -7,5 +7,7 @@
 __pycache__/
 *.pyc
 
-# Environment files
+# Environment and Secret files
 .env
+service-account.json
+credentials.json

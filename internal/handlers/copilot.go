@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
+	"universal-copilot/internal/calendar"
 	"universal-copilot/internal/database"
 )
 
@@ -54,6 +56,15 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 		   ICHIBAN LUXURY DARK DESIGN + FIXED UI
 		   ====================================================== */
 
+		html, body {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+			background: transparent !important;
+		}
+
 		.copilot-circle-wrapper {
 			position: fixed;
 			bottom: 1.5rem;
@@ -61,14 +72,12 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			z-index: 9999;
 			width: 3.8rem;
 			height: 3.8rem;
-			background-color: #19191a;
-			border: 1px solid rgba(255, 255, 255, 0.12);
-			border-radius: 2rem;
+			background: radial-gradient(circle at 32% 28%, #29292e 0%, #16161a 75%);
+			border: 1px solid rgba(255, 255, 255, 0.10);
+			border-radius: 50%;
 			padding: 0;
 			box-sizing: border-box;
-			box-shadow: inset 0 8px 32px rgba(255, 255, 255, 0.03),
-			            0 12px 32px rgba(0, 0, 0, 0.75),
-			            inset 0 2px 2px rgba(255, 255, 255, 0.15);
+			box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 26px rgba(216, 168, 74, 0.20);
 			cursor: pointer;
 			display: flex;
 			flex-direction: column;
@@ -77,34 +86,47 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 			color: #ffffff;
 
-			transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-						opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-						height 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0s,
-						width 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.35s,
-						border-radius 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.35s,
-						padding 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.35s;
+			transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+						box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+						background 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+						border-color 0.3s ease,
+						width 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+						height 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+						border-radius 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+						padding 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+		}
+
+		.copilot-circle-wrapper:not(.is-open):hover {
+			transform: translateY(-2px) scale(1.05);
+			background: radial-gradient(circle at 32% 28%, #333339 0%, #1c1c20 75%);
+			box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5), 0 0 34px rgba(216, 168, 74, 0.35);
+			border-color: rgba(216, 168, 74, 0.4);
+		}
+
+		.copilot-circle-wrapper:not(.is-open):active {
+			transform: scale(0.96);
 		}
 
 		.copilot-circle-wrapper.is-expanded-width {
 			width: min(24rem, calc(100vw - 3rem));
 			height: 3.8rem;
-			border-radius: 2rem;
+			background-color: #242424;
+			border: 1px solid rgba(255, 255, 255, 0.12);
+			border-radius: 1.25rem;
 			padding: 1rem;
-
-			transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-						opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-						width 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0s,
-						height 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.38s,
-						border-radius 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.38s,
-						padding 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.38s;
+			box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
 		}
 
 		.copilot-circle-wrapper.is-open {
 			width: min(24rem, calc(100vw - 3rem));
 			height: 28rem;
+			background-color: #242424;
+			border: 1px solid rgba(255, 255, 255, 0.12);
 			border-radius: 1.25rem;
 			padding: 1.25rem;
 			cursor: default;
+			transform: translateY(0) scale(1);
+			box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
 		}
 
 		.copilot-toggle-icon {
@@ -120,6 +142,14 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			cursor: pointer;
 			color: #ffffff;
 			transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+		}
+
+		.copilot-toggle-icon svg {
+			transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+		}
+
+		.copilot-circle-wrapper.is-open .copilot-toggle-icon svg {
+			transform: rotate(90deg);
 		}
 
 		.copilot-circle-wrapper.is-expanded-width .copilot-toggle-icon,
@@ -167,8 +197,8 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			overflow-y: auto;
 			scrollbar-width: none;
 			-ms-overflow-style: none;
-			background: #111112;
-			border: 1px solid rgba(255, 255, 255, 0.05);
+			background: #181818;
+			border: 1px solid rgba(255, 255, 255, 0.08);
 			padding: 0.75rem;
 			border-radius: 0.75rem;
 			font-size: 0.82rem;
@@ -184,6 +214,204 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			display: none;
 		}
 
+		.copilot-chat-bubble {
+			animation: chatBubbleIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+		}
+
+		@keyframes chatBubbleIn {
+			from {
+				opacity: 0;
+				transform: translateY(8px) scale(0.97);
+			}
+			to {
+				opacity: 1;
+				transform: translateY(0) scale(1);
+			}
+		}
+
+		.site-pet__svg {
+			overflow: visible;
+			filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+			animation: petIdleBob 3.2s ease-in-out infinite;
+			transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+		}
+
+		@keyframes petIdleBob {
+			0%, 100% { transform: translateY(0px); }
+			50% { transform: translateY(-3.5px); }
+		}
+
+		.site-pet__shadow, .site-pet__shadow-ambient {
+			transform-box: fill-box;
+			transform-origin: center;
+			animation: petShadowPulse 3.2s ease-in-out infinite;
+		}
+
+		@keyframes petShadowPulse {
+			0%, 100% { transform: scaleX(1); opacity: 0.85; }
+			50% { transform: scaleX(0.72); opacity: 0.40; }
+		}
+
+		.site-pet__eyes {
+			transition: transform 0.15s ease-out;
+			transform-box: fill-box;
+			transform-origin: center;
+			animation: petEyeJoyShake 3.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+		}
+
+		@keyframes petEyeJoyShake {
+			0%, 28%, 75%, 100% {
+				transform: translate(0, 0) scaleY(1);
+			}
+			36% {
+				transform: translate(-1.2px, -1.2px) scaleY(0.38);
+			}
+			44% {
+				transform: translate(1.2px, -0.6px) scaleY(0.30);
+			}
+			52% {
+				transform: translate(-1px, -1px) scaleY(0.35);
+			}
+			60% {
+				transform: translate(1px, -0.6px) scaleY(0.30);
+			}
+			68% {
+				transform: translate(0, -0.4px) scaleY(0.65);
+			}
+		}
+
+		.copilot-circle-wrapper:hover .site-pet__eyes {
+			animation: petHoverHappyEyes 0.35s ease-in-out infinite alternate;
+		}
+
+		@keyframes petHoverHappyEyes {
+			0% { transform: translateY(-1.2px) scaleY(0.30) rotate(-2deg); }
+			100% { transform: translateY(-1.5px) scaleY(0.25) rotate(2deg); }
+		}
+
+		.site-pet__eye {
+			transform-box: fill-box;
+			transform-origin: center;
+			animation: petBlink 3.8s infinite ease-in-out;
+			filter: drop-shadow(0 0 3px rgba(232, 196, 104, 0.85));
+		}
+
+		@keyframes petBlink {
+			0%, 88%, 94%, 100% { transform: scaleY(1); }
+			91% { transform: scaleY(0.1); }
+		}
+
+		.pet-hat[data-hat-variant="sprout"] ellipse:first-of-type {
+			transform-box: fill-box;
+			transform-origin: bottom right;
+			animation: leafLeft 2.4s ease-in-out infinite alternate;
+		}
+
+		.pet-hat[data-hat-variant="sprout"] ellipse:last-of-type {
+			transform-box: fill-box;
+			transform-origin: bottom left;
+			animation: leafRight 2.4s ease-in-out infinite alternate;
+		}
+
+		@keyframes leafLeft {
+			0% { transform: rotate(22deg); }
+			100% { transform: rotate(34deg); }
+		}
+
+		@keyframes leafRight {
+			0% { transform: rotate(-22deg); }
+			100% { transform: rotate(-34deg); }
+		}
+
+		.copilot-circle-wrapper:hover .site-pet__leg--left {
+			animation: legTapLeft 0.45s ease-in-out infinite alternate;
+		}
+
+		.copilot-circle-wrapper:hover .site-pet__leg--right {
+			animation: legTapRight 0.45s ease-in-out 0.22s infinite alternate;
+		}
+
+		@keyframes legTapLeft {
+			0% { transform: translateY(0); }
+			100% { transform: translateY(-2px); }
+		}
+
+		@keyframes legTapRight {
+			0% { transform: translateY(0); }
+			100% { transform: translateY(-2px); }
+		}
+
+		.copilot-circle-wrapper:not(.is-open):hover .site-pet__svg {
+			animation: petWiggle 0.6s ease-in-out infinite alternate;
+		}
+
+		@keyframes petWiggle {
+			0% { transform: translateY(-3px) rotate(-3deg); }
+			100% { transform: translateY(-3px) rotate(3deg); }
+		}
+
+		.site-pet__arm--left {
+			transform-box: fill-box;
+			transform-origin: 7px 3px;
+			animation: leftArmWave 3.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+		}
+
+		@keyframes leftArmWave {
+			0%, 15% {
+				transform: rotate(0deg);
+			}
+			32% {
+				transform: rotate(138deg) translateY(-2px);
+			}
+			42% {
+				transform: rotate(165deg) translateY(-3px);
+			}
+			52% {
+				transform: rotate(122deg) translateY(-3px);
+			}
+			62% {
+				transform: rotate(160deg) translateY(-3px);
+			}
+			75% {
+				transform: rotate(45deg);
+			}
+			88%, 100% {
+				transform: rotate(0deg);
+			}
+		}
+
+		.copilot-circle-wrapper:hover .site-pet__arm--left {
+			animation: leftArmExcited 0.35s ease-in-out infinite alternate;
+		}
+
+		@keyframes leftArmExcited {
+			0% { transform: rotate(130deg) translateY(-2px); }
+			100% { transform: rotate(168deg) translateY(-4px); }
+		}
+
+		.copilot-input-group {
+			display: flex;
+			gap: 0.5rem;
+			position: relative;
+		}
+
+		.copilot-input {
+			flex: 1;
+			background: #242424;
+			border: 1px solid rgba(255, 255, 255, 0.12);
+			border-radius: 0.5rem;
+			padding: 0.6rem 0.8rem;
+			color: #ffffff;
+			font-size: 0.8rem;
+			outline: none;
+			transition: border-color 0.2s ease, box-shadow 0.2s ease;
+		}
+
+		.copilot-input:focus {
+			border-color: rgba(255, 255, 255, 0.35);
+			box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
+		}
+
 		.copilot-chips {
 			display: flex;
 			gap: 6px;
@@ -192,9 +420,9 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 		}
 
 		.copilot-chip-btn {
-			background: #222226;
+			background: #2e2e2e;
 			color: #d1d1d6;
-			border: 1px solid rgba(255, 255, 255, 0.08);
+			border: 1px solid rgba(255, 255, 255, 0.1);
 			padding: 5px 10px;
 			border-radius: 6px;
 			font-size: 0.75rem;
@@ -204,9 +432,10 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 		}
 
 		.copilot-chip-btn:hover {
-			background: #2f2f35;
+			background: #383838;
 			color: #ffffff;
 			border-color: rgba(255, 255, 255, 0.2);
+			transform: translateY(-1px);
 		}
 
 		.copilot-form {
@@ -214,42 +443,62 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			gap: 6px;
 		}
 
-		.copilot-input {
-			flex: 1;
-			padding: 0.6rem 0.75rem;
-			border-radius: 0.5rem;
-			border: 1px solid rgba(255, 255, 255, 0.1);
-			background: #111112;
-			color: #ffffff;
-			font-size: 0.8rem;
-			outline: none;
-			transition: border-color 0.2s ease;
-		}
-
-		.copilot-input:focus {
-			border-color: rgba(255, 255, 255, 0.3);
-		}
-
 		.copilot-send-btn {
 			background: #ffffff;
-			color: #0d0d0e;
+			color: #1a1a1a;
 			border: none;
 			padding: 0.6rem 1rem;
 			border-radius: 0.5rem;
 			font-size: 0.8rem;
 			font-weight: 600;
 			cursor: pointer;
-			transition: background-color 0.2s ease;
+			transition: background-color 0.2s ease, transform 0.15s ease;
 		}
 
 		.copilot-send-btn:hover {
 			background: #e1e1e6;
+			transform: translateY(-1px);
+		}
+
+		.copilot-send-btn:active {
+			transform: scale(0.97);
 		}
 
 		.copilot-send-btn:disabled {
-			background: #333336;
+			background: #383838;
 			color: #77777c;
 			cursor: not-allowed;
+			transform: none;
+		}
+
+		.copilot-chips {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			margin-top: 8px;
+		}
+
+		.copilot-chip-btn {
+			background: #2a2a2a;
+			color: #f3e9d6;
+			border: 1px solid rgba(255, 255, 255, 0.15);
+			padding: 5px 10px;
+			border-radius: 6px;
+			font-size: 0.72rem;
+			font-weight: 500;
+			cursor: pointer;
+			transition: all 0.2s ease;
+			display: inline-block;
+		}
+
+		.copilot-chip-btn:hover {
+			background: #383838;
+			border-color: rgba(255, 255, 255, 0.35);
+			transform: translateY(-1px);
+		}
+
+		.copilot-chip-btn:active {
+			transform: scale(0.96);
 		}
 	</style>
 
@@ -264,7 +513,7 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			</div>
 
 			<form class="copilot-form"
-			      hx-post="/copilot/chat?app_id={{APP_ID}}" 
+			      hx-post="/copilot/chat" 
 			      hx-target="#copilot-chat-history" 
 			      hx-swap="beforeend" 
 			      hx-on::before-request="document.getElementById('copilot-send-btn').disabled = true; document.getElementById('copilot-send-btn').innerText = 'Thinking...';"
@@ -276,12 +525,23 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 		</div>
 
 		<div id="copilotToggleIcon" class="copilot-toggle-icon">
-			<svg id="copilotIconSvg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<rect x="3" y="11" width="18" height="10" rx="2"></rect>
-				<circle cx="12" cy="5" r="2"></circle>
-				<path d="M12 7v4"></path>
-				<line x1="8" y1="16" x2="8" y2="16.01"></line>
-				<line x1="16" y1="16" x2="16" y2="16.01"></line>
+			<svg id="copilotIconSvg" width="34" height="44" viewBox="-10 -8 58 64" class="site-pet__svg" fill="none">
+				<ellipse class="site-pet__shadow-ambient" cx="22" cy="53.5" rx="16" ry="2.6" fill="#000000" opacity="0.65"></ellipse>
+				<ellipse class="site-pet__shadow" cx="22" cy="53.5" rx="12" ry="1.8" fill="#000000" opacity="0.9"></ellipse>
+				<rect x="4" y="6" width="36" height="38" rx="5" fill="#2b2b30" stroke="rgba(216,168,74,0.3)" stroke-width="1"></rect>
+				<rect x="4" y="6" width="36" height="2" rx="1" fill="#e8c468" opacity="0.25"></rect>
+				<g class="site-pet__eyes">
+					<rect class="site-pet__eye" x="14" y="22" width="4" height="5" rx="1" fill="#e8c468"></rect>
+					<rect class="site-pet__eye" x="26" y="22" width="4" height="5" rx="1" fill="#e8c468"></rect>
+				</g>
+				<rect class="site-pet__leg site-pet__leg--left" x="10" y="42" width="8" height="10" rx="1.5" fill="#2b2b30" stroke="rgba(216,168,74,0.3)" stroke-width="1"></rect>
+				<rect class="site-pet__leg site-pet__leg--right" x="26" y="42" width="8" height="10" rx="1.5" fill="#2b2b30" stroke="rgba(216,168,74,0.3)" stroke-width="1"></rect>
+				<rect class="site-pet__arm site-pet__arm--left" x="-5" y="17" width="8" height="17" rx="4" fill="#2b2b30" stroke="rgba(216,168,74,0.3)" stroke-width="1"></rect>
+				<g class="pet-hat" data-hat-variant="sprout">
+					<rect x="21.2" y="-6" width="1.6" height="12" fill="#1f8a4c"></rect>
+					<ellipse cx="17" cy="-7" rx="5" ry="2.8" fill="#34d399" transform="rotate(28 17 -7)"></ellipse>
+					<ellipse cx="27" cy="-7" rx="5" ry="2.8" fill="#34d399" transform="rotate(-28 27 -7)"></ellipse>
+				</g>
 			</svg>
 		</div>
 	</div>
@@ -293,8 +553,24 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			const copilotIconSvg = document.getElementById("copilotIconSvg");
 			let isAnimating = false;
 
-			const robotSvg = '<rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16.01"></line><line x1="16" y1="16" x2="16" y2="16.01"></line>';
-			const closeSvg = '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>';
+			const robotSvg = '<ellipse class="site-pet__shadow-ambient" cx="22" cy="53.5" rx="16" ry="2.6" fill="#000000" opacity="0.65"></ellipse><ellipse class="site-pet__shadow" cx="22" cy="53.5" rx="12" ry="1.8" fill="#000000" opacity="0.9"></ellipse><rect x="4" y="6" width="36" height="38" rx="5" fill="#2b2b30" stroke="rgba(216,168,74,0.3)" stroke-width="1"></rect><rect x="4" y="6" width="36" height="2" rx="1" fill="#e8c468" opacity="0.25"></rect><g class="site-pet__eyes"><rect class="site-pet__eye" x="14" y="22" width="4" height="5" rx="1" fill="#e8c468"></rect><rect class="site-pet__eye" x="26" y="22" width="4" height="5" rx="1" fill="#e8c468"></rect></g><rect class="site-pet__leg site-pet__leg--left" x="10" y="42" width="8" height="10" rx="1.5" fill="#2b2b30" stroke="rgba(216,168,74,0.3)" stroke-width="1"></rect><rect class="site-pet__leg site-pet__leg--right" x="26" y="42" width="8" height="10" rx="1.5" fill="#2b2b30" stroke="rgba(216,168,74,0.3)" stroke-width="1"></rect><rect class="site-pet__arm site-pet__arm--left" x="-5" y="17" width="8" height="17" rx="4" fill="#2b2b30" stroke="rgba(216,168,74,0.3)" stroke-width="1"></rect><g class="pet-hat" data-hat-variant="sprout"><rect x="21.2" y="-6" width="1.6" height="12" fill="#1f8a4c"></rect><ellipse cx="17" cy="-7" rx="5" ry="2.8" fill="#34d399" transform="rotate(28 17 -7)"></ellipse><ellipse cx="27" cy="-7" rx="5" ry="2.8" fill="#34d399" transform="rotate(-28 27 -7)"></ellipse></g>';
+			const closeSvg = '<line x1="12" y1="18" x2="32" y2="38" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"></line><line x1="32" y1="18" x2="12" y2="38" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"></line>';
+
+			// Live cursor glance tracking for pet eyes
+			window.addEventListener("mousemove", (e) => {
+				const eyesGroup = document.querySelector(".site-pet__eyes");
+				if (!eyesGroup) return;
+				const rect = eyesGroup.getBoundingClientRect();
+				const eyeCenterX = rect.left + rect.width / 2;
+				const eyeCenterY = rect.top + rect.height / 2;
+				const dx = e.clientX - eyeCenterX;
+				const dy = e.clientY - eyeCenterY;
+				const maxOffset = 2.2;
+				const dist = Math.hypot(dx, dy) || 1;
+				const offsetX = Math.max(-maxOffset, Math.min(maxOffset, (dx / dist) * maxOffset));
+				const offsetY = Math.max(-maxOffset, Math.min(maxOffset, (dy / dist) * maxOffset));
+				eyesGroup.style.transform = "translate(" + offsetX.toFixed(2) + "px, " + offsetY.toFixed(2) + "px)";
+			});
 
 			function openCopilot() {
 				if (isAnimating) return;
@@ -357,9 +633,9 @@ func HandleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	appID := r.URL.Query().Get("app_id")
+	appID := strings.TrimSpace(r.URL.Query().Get("app_id"))
 	if appID == "" {
-		appID = r.FormValue("app_id")
+		appID = strings.TrimSpace(r.FormValue("app_id"))
 	}
 
 	if appID == "" {
@@ -373,26 +649,81 @@ func HandleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ✅ Updated Code:
+	ownerEmail := database.GetCalendarEmailForApp(appID)
+	clientName := database.GetClientNameForApp(appID)
+	if clientName == "" {
+		clientName = appID
+	}
+
+	// 1. Check if user provided an email + time to auto-book a meeting on Google Calendar
+	booked, bookingReply, _ := calendar.CheckAndBookMeeting(r.Context(), ownerEmail, clientName, userMsg)
+	if booked {
+		responseHTML := fmt.Sprintf(`
+			<div class="copilot-chat-bubble" style="margin-top:8px; text-align:right;">
+				<span style="background:#2e2e2e; border:1px solid rgba(255,255,255,0.1); color:#ffffff; padding:6px 10px; border-radius:6px; font-size:12px; display:inline-block;">%s</span>
+			</div>
+			<div class="copilot-chat-bubble" style="margin-top:8px; text-align:left;">
+				<div style="background:#242424; border:1px solid rgba(255,255,200,0.08); padding:8px 12px; border-radius:6px; font-size:12px; color:#e1e1e6; white-space:pre-wrap; margin-top:4px;">%s</div>
+			</div>
+			<script>
+				var elem = document.getElementById('copilot-chat-history');
+				elem.scrollTop = elem.scrollHeight;
+			</script>
+		`, userMsg, bookingReply)
+		fmt.Fprint(w, responseHTML)
+		return
+	}
+
+	// 2. Check if user is asking about schedule, availability, meetings, free slots, or booking
+	calendarInfo := ""
+	lowerMsg := strings.ToLower(userMsg)
+	if strings.Contains(lowerMsg, "free") || strings.Contains(lowerMsg, "available") || strings.Contains(lowerMsg, "schedule") || strings.Contains(lowerMsg, "book") || strings.Contains(lowerMsg, "meet") || strings.Contains(lowerMsg, "call") || strings.Contains(lowerMsg, "time") || strings.Contains(lowerMsg, "slot") || strings.Contains(lowerMsg, "appointment") {
+		calendarInfo = calendar.GetAvailableSlotsSummary(r.Context(), ownerEmail, 7)
+	}
+
 	contextData := database.GetContextForApp(appID, userMsg)
 	
-	prompt := fmt.Sprintf(`System Instruction: You are an AI Copilot assistant for the entity/website with App ID '%s' (such as a developer, hospital, organization, business, or creator).
-Analyze the provided Context Data below (retrieved from the database) to understand who or what you are representing, and answer the user's question directly, accurately, and concisely based strictly on that context.
+	prompt := fmt.Sprintf(`System Instruction: You are an AI Copilot assistant for '%s' (App ID: '%s', Calendar: '%s').
+Analyze the provided Context Data and Live Calendar Availability below to answer the user's question directly, accurately, politely, and concisely.
+
+CRITICAL CALENDAR & SCHEDULING RULES:
+1. When asked about scheduling an interview, meeting, or checking %s's availability:
+   - Check the Live Calendar Status below for real-time open slots.
+   - Present 3-4 specific recommended free options (e.g. Option A, Option B, Option C) during working hours (10:00 AM – 6:00 PM).
+   - ALWAYS append interactive clickable buttons at the very bottom of your response in this exact HTML structure:
+   <div class="copilot-chips">
+     <button type="button" class="copilot-chip-btn" onclick="document.getElementById('copilot-msg-input').value = this.innerText + ', my email is '; document.getElementById('copilot-msg-input').focus();">Tomorrow at 11:00 AM</button>
+     <button type="button" class="copilot-chip-btn" onclick="document.getElementById('copilot-msg-input').value = this.innerText + ', my email is '; document.getElementById('copilot-msg-input').focus();">Tomorrow at 03:00 PM</button>
+     <button type="button" class="copilot-chip-btn" onclick="document.getElementById('copilot-msg-input').value = this.innerText + ', my email is '; document.getElementById('copilot-msg-input').focus();">Monday at 04:00 PM</button>
+   </div>
+2. If the user wants to book or schedule a call, ask for their preferred time slot and email address.
 
 CRITICAL FORMATTING & LANGUAGE RULES:
-1. STRICT LANGUAGE MATCHING: Respond strictly in the same language as the User Query. If the user query is written in English (e.g. "What is your background?", "Aapka intro..."), reply ONLY in plain, natural English. Never reply in Hindi script or Hinglish unless the user explicitly speaks in Hindi.
+1. STRICT LANGUAGE MATCHING: Respond strictly in the same language as the User Query. If written in English, reply ONLY in plain, natural English.
 2. ABSOLUTELY NO ASTERISKS: Do NOT use any asterisks (*) or double asterisks (**) anywhere in the generated text.
 3. CLEAN LISTS: Format bullet points using simple hyphens (-) or numbers.
+
+--- LIVE CALENDAR STATUS ---
+%s
+--- END CALENDAR STATUS ---
 
 --- CONTEXT DATA START ---
 %s
 --- CONTEXT DATA END ---
 
-User Query: %s`, appID, contextData, userMsg)
+User Query: %s`, clientName, appID, ownerEmail, clientName, calendarInfo, contextData, userMsg)
 
+	log.Printf("[Copilot] Handling chat for App ID '%s' (%s | %s) | Query: %s", appID, clientName, ownerEmail, userMsg)
 	apiKey := database.GetAPIKeyForApp(appID)
 	if apiKey == "" {
 		apiKey = os.Getenv("GEMINI_API_KEY")
+		if apiKey != "" {
+			log.Println("[Copilot] Using fallback GEMINI_API_KEY from environment")
+		} else {
+			log.Printf("[Copilot] ⚠️ Warning: No API key found for '%s' in DB or ENV!", appID)
+		}
+	} else {
+		log.Printf("[Copilot] Retrieved API key from DB for '%s'", appID)
 	}
 
 	aiReply := callGeminiAPI(prompt, apiKey)
@@ -402,11 +733,11 @@ User Query: %s`, appID, contextData, userMsg)
 	aiReplyClean := re.ReplaceAllString(aiReply, "")
 
 	responseHTML := fmt.Sprintf(`
-		<div style="margin-top:8px; text-align:right;">
-			<span style="background:#222226; border:1px solid rgba(255,255,255,0.08); color:#ffffff; padding:4px 8px; border-radius:6px; font-size:12px; display:inline-block;">%s</span>
+		<div class="copilot-chat-bubble" style="margin-top:8px; text-align:right;">
+			<span style="background:#2e2e2e; border:1px solid rgba(255,255,255,0.1); color:#ffffff; padding:6px 10px; border-radius:6px; font-size:12px; display:inline-block;">%s</span>
 		</div>
-		<div style="margin-top:8px; text-align:left;">
-			<div style="background:#19191a; border:1px solid rgba(255,255,255,0.08); padding:8px 10px; border-radius:6px; font-size:12px; color:#e1e1e6; white-space:pre-wrap; margin-top:4px;">%s</div>
+		<div class="copilot-chat-bubble" style="margin-top:8px; text-align:left;">
+			<div style="background:#242424; border:1px solid rgba(255,255,200,0.08); padding:8px 12px; border-radius:6px; font-size:12px; color:#e1e1e6; white-space:pre-wrap; margin-top:4px;">%s</div>
 		</div>
 		<script>
 			var elem = document.getElementById('copilot-chat-history');
@@ -417,11 +748,19 @@ User Query: %s`, appID, contextData, userMsg)
 	fmt.Fprint(w, responseHTML)
 }
 
-// callGeminiAPI sends the prompt to Gemini 2.5 Flash model
+// callGeminiAPI sends the prompt directly to Gemini 2.5 Flash model
 func callGeminiAPI(promptText, apiKey string) string {
+	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {
-		return "⚠️ No Gemini API Key found in Database or Environment Variables!"
+		log.Println("[Gemini] Error: Missing API Key.")
+		return "⚠️ No Gemini API Key found in Database or Environment Variables! Please register this App ID in /admin with your Gemini API key."
 	}
+
+	maskedKey := "invalid"
+	if len(apiKey) > 8 {
+		maskedKey = apiKey[:4] + "..." + apiKey[len(apiKey)-4:]
+	}
+	log.Printf("[Gemini] Calling Gemini 2.5 Flash with API key: %s (length: %d)", maskedKey, len(apiKey))
 
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=%s", apiKey)
 
@@ -436,9 +775,10 @@ func callGeminiAPI(promptText, apiKey string) string {
 		return "Error encoding request JSON."
 	}
 
-	client := &http.Client{Timeout: 20 * time.Second}
+	client := &http.Client{Timeout: 25 * time.Second}
 	resp, err := client.Post(url, "application/json", bytes.NewBuffer(jsonBytes))
 	if err != nil {
+		log.Printf("[Gemini] Network error calling Gemini 2.5 Flash: %v", err)
 		return fmt.Sprintf("Error calling Gemini API: %v", err)
 	}
 	defer resp.Body.Close()
@@ -448,7 +788,10 @@ func callGeminiAPI(promptText, apiKey string) string {
 		return "Error reading response body."
 	}
 
+	log.Printf("[Gemini] Gemini 2.5 Flash responded with HTTP %d", resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("[Gemini] API error response: %s", string(body))
 		return fmt.Sprintf("⚠️ Gemini API Error (Status %d): %s", resp.StatusCode, string(body))
 	}
 

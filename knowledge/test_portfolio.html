@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,11 +8,25 @@
     <!-- HTMX Script -->
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <style>
-        body { font-family: sans-serif; background: #0b0f19; color: white; padding: 40px; margin: 0; }
-        main { max-width: 800px; margin: 0 auto; }
-        h1 { color: #60a5fa; }
+        body {
+            font-family: sans-serif;
+            background: #ffffff;
+            color: black;
+            padding: 40px;
+            margin: 0;
+        }
+
+        main {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #60a5fa;
+        }
     </style>
 </head>
+
 <body>
 
     <main>
@@ -20,12 +35,16 @@
         <p>Look at the bottom-right corner to open the 2-stage Ichiban Circle AI Copilot!</p>
     </main>
 
-    <!-- PLUG-AND-PLAY COPILOT CONTAINER -->
-    <aside id="ai-copilot-root"
-           hx-get="http://localhost:8080/copilot/embed?app_id=ayushman_portfolio"
-           hx-trigger="load"
-           hx-swap="innerHTML">
-    </aside>
-
+    <!-- EMBEDDED AI COPILOT -->
+    <iframe src="http://localhost:10000/copilot/embed?app_id=ayushman_portfolio"
+        style="position: fixed; bottom: 20px; right: 20px; z-index: 99999; border: none; width: 380px; height: 520px; background: transparent;"
+        allowtransparency="true">
+    </iframe>
 </body>
+
 </html>
+
+<!-- 
+{
+
+} -->

@@ -6,6 +6,7 @@ import "time"
 type Application struct {
 	ID                string    `json:"id"`
 	ClientName        string    `json:"client_name"`
+	CalendarEmail     string    `json:"calendar_email"`
 	GeminiAPIKey      string    `json:"gemini_api_key"`
 	AppPasscode       string    `json:"app_passcode"`
 	SystemInstruction string    `json:"system_instruction"`

@@ -1,16 +1,44 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"universal-copilot/internal/database"
 	"universal-copilot/internal/handlers"
 	"universal-copilot/internal/pinger"
 )
 
+// loadEnv parses .env file into environment variables
+func loadEnv() {
+	file, err := os.Open(".env")
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			k := strings.TrimSpace(parts[0])
+			v := strings.Trim(strings.TrimSpace(parts[1]), `"'`)
+			os.Setenv(k, v)
+		}
+	}
+}
+
 func main() {
+	// 0. Load .env variables
+	loadEnv()
+
 	// Read database directory path
 	dataDir := os.Getenv("DATA_DIR")
 	if dataDir == "" {

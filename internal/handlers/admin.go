@@ -39,16 +39,25 @@ func HandleAdminUI(w http.ResponseWriter, r *http.Request) {
 			<p>Get a custom AI Chatbot for your website, portfolio, or organization in 1 minute. Upload your knowledge doc, set your Gemini key, and embed the 2-line script!</p>
 
 			<form action="/admin/ingest" method="POST" enctype="multipart/form-data">
-				<label>1. Unique App ID (e.g. city_hospital, rahul_dev, my_company):</label>
-				<input type="text" name="app_id" placeholder="e.g. city_hospital" required />
+				<label>1. Unique App ID (e.g. ayushman_dev, city_clinic, saas_copilot):</label>
+				<input type="text" name="app_id" placeholder="e.g. ayushman_dev" required />
 
-				<label>2. Set Account Security PIN (To update your data later):</label>
+				<label>2. Your Name / Brand Name (Displayed to visitors in chat):</label>
+				<input type="text" name="client_name" placeholder="e.g. Ayushman Singh" />
+
+				<label>3. Google Calendar & Notification Email (For auto-scheduling & confirmations):</label>
+				<input type="email" name="calendar_email" placeholder="e.g. yourname@gmail.com" />
+				<div style="background: rgba(37, 99, 235, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 10px; margin-top: 6px; font-size: 12px; color: #93c5fd;">
+					📅 <strong>To enable live Google Calendar booking:</strong> Share your Google Calendar with <code>calendar-copilot@ai-interviewer-475814.iam.gserviceaccount.com</code> (Permission: <em>Make changes to events</em>).
+				</div>
+
+				<label>4. Set Account Security PIN (To update your data later):</label>
 				<input type="password" name="app_passcode" placeholder="Create a secret PIN..." required />
 
-				<label>3. Your Google Gemini API Key (AES-256 Encrypted & Saved):</label>
+				<label>5. Your Google Gemini API Key (AES-256 Encrypted & Saved):</label>
 				<input type="password" name="gemini_api_key" placeholder="AIzaSy..." required />
 
-				<label>4. Upload Knowledge Doc / PDF / Resume:</label>
+				<label>6. Upload Knowledge Doc / PDF / Resume:</label>
 				<div class="file-input-wrapper">
 					<input type="file" name="doc_file" accept=".pdf,.txt,.md" />
 				</div>
@@ -74,9 +83,15 @@ func HandleIngest(w http.ResponseWriter, r *http.Request) {
 	r.ParseMultipartForm(10 << 20)
 
 	appID := strings.TrimSpace(r.FormValue("app_id"))
+	clientName := strings.TrimSpace(r.FormValue("client_name"))
+	calendarEmail := strings.TrimSpace(r.FormValue("calendar_email"))
 	passcode := strings.TrimSpace(r.FormValue("app_passcode"))
 	apiKey := strings.TrimSpace(r.FormValue("gemini_api_key"))
 	rawText := strings.TrimSpace(r.FormValue("raw_text"))
+
+	if clientName == "" {
+		clientName = appID
+	}
 
 	if appID == "" || passcode == "" || apiKey == "" {
 		http.Error(w, "❌ Please fill all required fields (App ID, Security PIN, and Gemini API Key)!", http.StatusBadRequest)
@@ -129,15 +144,17 @@ func HandleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save or Update App
+	// Save or Update App with clientName and calendarEmail
 	appQuery := `
-		INSERT INTO applications (id, client_name, gemini_api_key, app_passcode) 
-		VALUES (?, ?, ?, ?) 
+		INSERT INTO applications (id, client_name, calendar_email, gemini_api_key, app_passcode) 
+		VALUES (?, ?, ?, ?, ?) 
 		ON CONFLICT(id) DO UPDATE SET 
+			client_name = excluded.client_name,
+			calendar_email = excluded.calendar_email,
 			gemini_api_key = excluded.gemini_api_key,
 			app_passcode = excluded.app_passcode;
 	`
-	_, err = database.DB.Exec(appQuery, appID, appID, encryptedKey, passcode)
+	_, err = database.DB.Exec(appQuery, appID, clientName, calendarEmail, encryptedKey, passcode)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error saving app: %v", err), http.StatusInternalServerError)
 		return
