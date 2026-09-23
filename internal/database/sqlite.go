@@ -144,6 +144,8 @@ func createTables() {
 		gemini_api_key TEXT NOT NULL,
 		app_passcode TEXT NOT NULL,
 		system_instruction TEXT,
+		starter_question TEXT NOT NULL DEFAULT '',
+		mcq_options TEXT NOT NULL DEFAULT '',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
 
@@ -170,9 +172,33 @@ func createTables() {
 	_, _ = DB.Exec("ALTER TABLE applications ADD COLUMN app_passcode TEXT NOT NULL DEFAULT '';")
 	_, _ = DB.Exec("ALTER TABLE applications ADD COLUMN calendar_email TEXT NOT NULL DEFAULT '';")
 	_, _ = DB.Exec("ALTER TABLE applications ADD COLUMN client_name TEXT NOT NULL DEFAULT '';")
+	_, _ = DB.Exec("ALTER TABLE applications ADD COLUMN starter_question TEXT NOT NULL DEFAULT '';")
+	_, _ = DB.Exec("ALTER TABLE applications ADD COLUMN mcq_options TEXT NOT NULL DEFAULT '';")
 
 	fmt.Println("Universal Database tables initialized successfully!")
 }
+
+// GetStarterQuestionAndMCQsForApp returns the custom starter question and MCQ options list for an app
+func GetStarterQuestionAndMCQsForApp(appID string) (string, []string) {
+	var question, mcqRaw string
+	err := DB.QueryRow("SELECT starter_question, mcq_options FROM applications WHERE id = ?", strings.TrimSpace(appID)).Scan(&question, &mcqRaw)
+	if err != nil {
+		return "", nil
+	}
+
+	var mcqs []string
+	if strings.TrimSpace(mcqRaw) != "" {
+		lines := strings.Split(mcqRaw, "\n")
+		for _, l := range lines {
+			l = strings.TrimSpace(l)
+			if l != "" {
+				mcqs = append(mcqs, l)
+			}
+		}
+	}
+	return strings.TrimSpace(question), mcqs
+}
+
 
 // GetContextForApp searches targeted contacts & info based on user query
 func GetContextForApp(appID string, userQuery string) string {

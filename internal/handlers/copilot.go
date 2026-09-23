@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net/http"
@@ -541,12 +542,9 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 			</div>
 			
 			<div id="copilot-chat-history" class="copilot-chat-history">
-				<p style="margin:0; color:#94a3b8; font-size: 0.82rem; line-height: 1.4;">Hey there! I am an AI Assistant. Ask me anything or select a quick option:</p>
+				<p style="margin:0; color:#94a3b8; font-size: 0.82rem; line-height: 1.4;">{{STARTING_QUESTION}}</p>
 				<div class="copilot-starter-chips">
-					<button type="button" class="copilot-starter-chip" onclick="quickSend('Schedule an interview / meeting with {{CLIENT_NAME}}')">📅 Schedule Meeting</button>
-					<button type="button" class="copilot-starter-chip" onclick="quickSend('What programming languages and tech stack does {{CLIENT_NAME}} use?')">💻 Tech Stack & Languages</button>
-					<button type="button" class="copilot-starter-chip" onclick="quickSend('Tell me about the key projects and engineering work of {{CLIENT_NAME}}')">🚀 Key Projects</button>
-					<button type="button" class="copilot-starter-chip" onclick="quickSend('Who is {{CLIENT_NAME}} and what is the background?')">👤 About {{CLIENT_NAME}}</button>
+{{STARTER_CHIPS}}
 				</div>
 			</div>
 
@@ -672,8 +670,70 @@ func HandleEmbed(w http.ResponseWriter, r *http.Request) {
 		clientName = "Ayushman"
 	}
 
-	finalHTML := strings.ReplaceAll(rawTmpl, "{{APP_ID}}", appID)
-	finalHTML = strings.ReplaceAll(finalHTML, "{{CLIENT_NAME}}", clientName)
+	starterQuestion, mcqList := database.GetStarterQuestionAndMCQsForApp(appID)
+
+	// URL query parameter overrides (e.g. ?question=...&mcqs=...)
+	if q := strings.TrimSpace(r.URL.Query().Get("question")); q != "" {
+		starterQuestion = q
+	}
+	if qMCQs := strings.TrimSpace(r.URL.Query().Get("mcqs")); qMCQs != "" {
+		mcqList = nil
+		for _, item := range strings.Split(qMCQs, ",") {
+			item = strings.TrimSpace(item)
+			if item != "" {
+				mcqList = append(mcqList, item)
+			}
+		}
+	}
+
+	// Default question if none configured
+	if starterQuestion == "" {
+		if len(mcqList) > 0 {
+			starterQuestion = "Hey there! Choose an option below or ask me anything:"
+		} else {
+			starterQuestion = "Hey there! I am an AI Assistant. Ask me anything or select a quick option:"
+		}
+	}
+
+	// Replace {{CLIENT_NAME}} in starting question
+	starterQuestion = strings.ReplaceAll(starterQuestion, "{{CLIENT_NAME}}", clientName)
+
+	// Build starter chips / MCQ buttons
+	var starterChipsHTML strings.Builder
+	if len(mcqList) == 0 {
+		// Default questions
+		starterChipsHTML.WriteString(fmt.Sprintf(`					<button type="button" class="copilot-starter-chip" data-query="Schedule an interview / meeting with %s" onclick="quickSend(this.getAttribute('data-query'))">📅 Schedule Meeting</button>
+					<button type="button" class="copilot-starter-chip" data-query="What programming languages and tech stack does %s use?" onclick="quickSend(this.getAttribute('data-query'))">💻 Tech Stack &amp; Languages</button>
+					<button type="button" class="copilot-starter-chip" data-query="Tell me about the key projects and engineering work of %s" onclick="quickSend(this.getAttribute('data-query'))">🚀 Key Projects</button>
+					<button type="button" class="copilot-starter-chip" data-query="Who is %s and what is the background?" onclick="quickSend(this.getAttribute('data-query'))">👤 About %s</button>`,
+			html.EscapeString(clientName),
+			html.EscapeString(clientName),
+			html.EscapeString(clientName),
+			html.EscapeString(clientName),
+			html.EscapeString(clientName),
+		))
+	} else {
+		// Custom MCQ questions given by user
+		for _, mcq := range mcqList {
+			mcqReplaced := strings.ReplaceAll(mcq, "{{CLIENT_NAME}}", clientName)
+			label := mcqReplaced
+			query := mcqReplaced
+			if strings.Contains(mcqReplaced, "|") {
+				parts := strings.SplitN(mcqReplaced, "|", 2)
+				label = strings.TrimSpace(parts[0])
+				query = strings.TrimSpace(parts[1])
+			}
+			starterChipsHTML.WriteString(fmt.Sprintf(`					<button type="button" class="copilot-starter-chip" data-query="%s" onclick="quickSend(this.getAttribute('data-query'))">%s</button>`+"\n",
+				html.EscapeString(query),
+				html.EscapeString(label),
+			))
+		}
+	}
+
+	finalHTML := strings.ReplaceAll(rawTmpl, "{{APP_ID}}", html.EscapeString(appID))
+	finalHTML = strings.ReplaceAll(finalHTML, "{{CLIENT_NAME}}", html.EscapeString(clientName))
+	finalHTML = strings.ReplaceAll(finalHTML, "{{STARTING_QUESTION}}", html.EscapeString(starterQuestion))
+	finalHTML = strings.ReplaceAll(finalHTML, "{{STARTER_CHIPS}}", starterChipsHTML.String())
 	fmt.Fprint(w, finalHTML)
 }
 

@@ -964,10 +964,31 @@ func HandleConfigureUI(w http.ResponseWriter, r *http.Request) {
 						</div>
 					</div>
 
-					<!-- Field 6 & 7: Knowledge Doc Upload or Text -->
+					<!-- Field 6: Starting Question / Bot Greeting (Optional) -->
 					<div class="form-group">
 						<div class="form-label-row">
-							<label class="form-label">06 — Upload Knowledge Doc / PDF / Resume</label>
+							<label class="form-label" for="starter_question">06 — Starting Question / Bot Greeting</label>
+							<span class="form-hint">leave blank for default greeting</span>
+						</div>
+						<input type="text" id="starter_question" name="starter_question" class="form-input" placeholder="e.g. Hey there! How can I help you today? (Leave blank to use default)" />
+					</div>
+
+					<!-- Field 7: Multiple Choice Questions (MCQ) / Quick Options (Optional) -->
+					<div class="form-group">
+						<div class="form-label-row">
+							<label class="form-label" for="mcq_options">07 — Multiple Choice Questions (MCQ Options)</label>
+							<span class="form-hint">one option per line</span>
+						</div>
+						<textarea id="mcq_options" name="mcq_options" rows="4" class="form-textarea" placeholder="Enter custom MCQ options (one per line).&#10;Example:&#10;What are your core services?&#10;Tell me about your tech stack and experience&#10;Schedule an interview or meeting&#10;How do I get in touch with you?&#10;(Leave blank to keep default questions: meeting, tech stack, projects, about)"></textarea>
+						<div class="info-box">
+							💡 <strong>MCQ Behavior:</strong> If you leave this blank, the bot asks the default questions (Schedule Meeting, Tech Stack, Projects, About). If you enter questions here, the starting question and clickable MCQ buttons in the bot will be the ones given by you!
+						</div>
+					</div>
+
+					<!-- Field 8 & 9: Knowledge Doc Upload or Text -->
+					<div class="form-group">
+						<div class="form-label-row">
+							<label class="form-label">08 — Upload Knowledge Doc / PDF / Resume</label>
 							<span class="form-hint">accepts .pdf, .txt, .md</span>
 						</div>
 						<div class="file-dropzone">
@@ -1754,6 +1775,8 @@ func HandleIngest(w http.ResponseWriter, r *http.Request) {
 	calendarEmail := strings.TrimSpace(r.FormValue("calendar_email"))
 	passcode := strings.TrimSpace(r.FormValue("app_passcode"))
 	apiKey := strings.TrimSpace(r.FormValue("gemini_api_key"))
+	starterQuestion := strings.TrimSpace(r.FormValue("starter_question"))
+	mcqOptions := strings.TrimSpace(r.FormValue("mcq_options"))
 	rawText := strings.TrimSpace(r.FormValue("raw_text"))
 
 	if clientName == "" {
@@ -1810,15 +1833,17 @@ func HandleIngest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	appQuery := `
-		INSERT INTO applications (id, client_name, calendar_email, gemini_api_key, app_passcode) 
-		VALUES (?, ?, ?, ?, ?) 
+		INSERT INTO applications (id, client_name, calendar_email, gemini_api_key, app_passcode, starter_question, mcq_options) 
+		VALUES (?, ?, ?, ?, ?, ?, ?) 
 		ON CONFLICT(id) DO UPDATE SET 
 			client_name = excluded.client_name,
 			calendar_email = excluded.calendar_email,
 			gemini_api_key = excluded.gemini_api_key,
-			app_passcode = excluded.app_passcode;
+			app_passcode = excluded.app_passcode,
+			starter_question = excluded.starter_question,
+			mcq_options = excluded.mcq_options;
 	`
-	_, err = database.DB.Exec(appQuery, appID, clientName, calendarEmail, encryptedKey, passcode)
+	_, err = database.DB.Exec(appQuery, appID, clientName, calendarEmail, encryptedKey, passcode, starterQuestion, mcqOptions)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error saving app: %v", err), http.StatusInternalServerError)
 		return
