@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"fmt"
+	"html"
 	"io"
 	"log"
 	"net/http"
@@ -1306,6 +1307,89 @@ func HandleDocsStudioUI(w http.ResponseWriter, r *http.Request) {
 			transform: translateY(-1px);
 		}
 
+		/* Toggle Switch Component */
+		.template-toggle-bar {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 16px;
+			background: var(--white);
+			border: 2px solid var(--antidote-black);
+			border-radius: 999px;
+			padding: 0.65rem 1.75rem;
+			margin-bottom: 1.5rem;
+			box-shadow: -4px 4px 0 0 var(--antidote-black);
+			width: fit-content;
+			margin-left: auto;
+			margin-right: auto;
+		}
+		.toggle-mode-label {
+			font-family: 'Space Grotesk', sans-serif;
+			font-size: 0.88rem;
+			font-weight: 700;
+			color: #71717a;
+			cursor: pointer;
+			user-select: none;
+			transition: all 0.2s ease;
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+		}
+		.toggle-mode-label.active {
+			color: var(--antidote-black);
+		}
+		.toggle-mode-label.kiet-active {
+			color: #d9531e;
+		}
+		.switch-ui {
+			position: relative;
+			display: inline-block;
+			width: 52px;
+			height: 28px;
+			margin: 0;
+			cursor: pointer;
+		}
+		.switch-ui input {
+			opacity: 0;
+			width: 0;
+			height: 0;
+		}
+		.slider-ui {
+			position: absolute;
+			cursor: pointer;
+			top: 0; left: 0; right: 0; bottom: 0;
+			background-color: #e4e4e7;
+			border: 2px solid var(--antidote-black);
+			transition: .25s cubic-bezier(0.4, 0, 0.2, 1);
+			border-radius: 34px;
+		}
+		.slider-ui:before {
+			position: absolute;
+			content: "";
+			height: 18px;
+			width: 18px;
+			left: 3px;
+			bottom: 3px;
+			background-color: var(--antidote-black);
+			transition: .25s cubic-bezier(0.4, 0, 0.2, 1);
+			border-radius: 50%%;
+		}
+		.switch-ui input:checked + .slider-ui {
+			background-color: #f47920;
+		}
+		.switch-ui input:checked + .slider-ui:before {
+			transform: translateX(24px);
+			background-color: #ffffff;
+		}
+		.kiet-preview {
+			font-family: 'Times New Roman', Times, serif !important;
+			font-size: 0.95rem !important;
+			line-height: 1.65 !important;
+			color: #f2f2f7 !important;
+			background: #15151a !important;
+			border-left: 4px solid #f47920 !important;
+		}
+
 		/* Input Section */
 		.chat-input-container {
 			background: #111114;
@@ -1468,26 +1552,35 @@ func HandleDocsStudioUI(w http.ResponseWriter, r *http.Request) {
 				💡 <strong>Google Drive Sync:</strong> Ensure your folder (e.g. <code>copilot</code>) is shared with <code style="background: #ffffff; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(2,0,52,0.15);">calendar-copilot@ai-interviewer-475814.iam.gserviceaccount.com</code> (Editor). You can also click <strong>Copy link</strong> on your folder in Drive and paste it in the box above!
 			</div>
 
+			<!-- Document Template Toggle Switch -->
+			<div class="template-toggle-bar">
+				<span class="toggle-mode-label active" id="lbl-general" onclick="setTemplateMode('general')">Standard Document</span>
+				<label class="switch-ui" title="Toggle between Standard Document and KIET University Announcement">
+					<input type="checkbox" id="mode-switch-input" onchange="handleToggleSwitch(this.checked)" />
+					<span class="slider-ui"></span>
+				</label>
+				<span class="toggle-mode-label" id="lbl-kiet" onclick="setTemplateMode('kiet')">KIET University Announcement</span>
+			</div>
+
 			<!-- Chat Studio Card -->
 			<div class="chat-card">
 				<div class="chat-header">
 					<div class="chat-header-left">
-						<span style="font-size: 1.25rem;">📄</span>
-						<span class="chat-header-title">google docs assistant</span>
-						<span class="chat-header-badge">gemini 2.5 flash + docs api</span>
+						<span class="chat-header-title" id="chat-header-title">Google Docs Assistant</span>
+						<span class="chat-header-badge" id="chat-header-badge">Gemini 2.5 Flash + Docs API</span>
 					</div>
 					<a href="/admin" style="color: #a0a0aa; font-size: 0.8rem; text-decoration: none; font-family: 'Space Mono', monospace;">← Hub</a>
 				</div>
 
 				<div class="chat-messages" id="chat-messages-container">
 					<div class="chat-bubble bot-bubble">
-						<div class="bot-msg-title">✨ What would you like me to write?</div>
-						<div>Ask me to write any document (e.g. <em>"Write a project proposal for a full-stack AI web app"</em> or <em>"Draft an executive briefing for Q4"</em>). I'll generate the full content and create a Google Doc directly in your Google Drive.</div>
-						<div class="prompt-chips">
-							<button type="button" class="prompt-chip" onclick="applyPrompt(this.innerText)">📄 Write a Project Proposal for AI Copilot</button>
-							<button type="button" class="prompt-chip" onclick="applyPrompt(this.innerText)">📝 Draft a Technical Architecture Document</button>
-							<button type="button" class="prompt-chip" onclick="applyPrompt(this.innerText)">📊 Create an Executive Summary for Q4</button>
-							<button type="button" class="prompt-chip" onclick="applyPrompt(this.innerText)">✉️ Write a Client Onboarding & Welcome Guide</button>
+						<div class="bot-msg-title" id="bot-welcome-title">What would you like me to write?</div>
+						<div id="bot-welcome-desc">Ask me to write any document (e.g. <em>"Write a project proposal for a full-stack AI web app"</em> or <em>"Draft an executive briefing for Q4"</em>). I'll generate the full content and create a Google Doc directly in your Google Drive.</div>
+						<div class="prompt-chips" id="starter-prompt-chips">
+							<button type="button" class="prompt-chip" onclick="applyPrompt(this.innerText)">Write a Project Proposal for AI Copilot</button>
+							<button type="button" class="prompt-chip" onclick="applyPrompt(this.innerText)">Draft a Technical Architecture Document</button>
+							<button type="button" class="prompt-chip" onclick="applyPrompt(this.innerText)">Create an Executive Summary for Q4</button>
+							<button type="button" class="prompt-chip" onclick="applyPrompt(this.innerText)">Write a Client Onboarding &amp; Welcome Guide</button>
 						</div>
 					</div>
 				</div>
@@ -1511,6 +1604,67 @@ func HandleDocsStudioUI(w http.ResponseWriter, r *http.Request) {
 		const chatMessages = document.getElementById('chat-messages-container');
 		const chatInput = document.getElementById('chat-user-input');
 		const submitBtn = document.getElementById('chat-submit-btn');
+
+		let currentTemplate = 'general';
+		let currentPendingTopic = '';
+
+		function setTemplateMode(mode) {
+			const isKiet = (mode === 'kiet');
+			const toggleInput = document.getElementById('mode-switch-input');
+			if (toggleInput) toggleInput.checked = isKiet;
+			applyTemplateState(isKiet);
+		}
+
+		function handleToggleSwitch(isChecked) {
+			applyTemplateState(isChecked);
+		}
+
+		function applyTemplateState(isKiet) {
+			currentTemplate = isKiet ? 'kiet' : 'general';
+
+			const lblGeneral = document.getElementById('lbl-general');
+			const lblKiet = document.getElementById('lbl-kiet');
+			if (lblGeneral) lblGeneral.className = isKiet ? 'toggle-mode-label' : 'toggle-mode-label active';
+			if (lblKiet) lblKiet.className = isKiet ? 'toggle-mode-label kiet-active' : 'toggle-mode-label';
+
+			const badge = document.getElementById('chat-header-badge');
+			const title = document.getElementById('chat-header-title');
+			const welcomeTitle = document.getElementById('bot-welcome-title');
+			const welcomeDesc = document.getElementById('bot-welcome-desc');
+			const chipsContainer = document.getElementById('starter-prompt-chips');
+
+			if (isKiet) {
+				if (badge) badge.innerText = 'KIET Letterhead Mode (Times New Roman)';
+				if (title) title.innerText = 'KIET University Docs Assistant';
+				if (welcomeTitle) welcomeTitle.innerText = 'KIET University Announcement Generator';
+				if (welcomeDesc) welcomeDesc.innerHTML = 'Draft official letters and event announcements for <strong>KIET Deemed to be University</strong> with the authentic letterhead header, Dean sign-off, and Times New Roman typography. Just tell me your event or function!';
+				chatInput.placeholder = "Announce Manthan Quiz, Innotech Tech Fest, Hackathon, or Cultural Fest...";
+				if (chipsContainer) {
+					chipsContainer.innerHTML = '<button type="button" class="prompt-chip" data-prompt="MANTHAN 2026 – National Inter-School Quiz Competition" onclick="applyPrompt(this.dataset.prompt)">MANTHAN 2026 Quiz</button>' +
+						'<button type="button" class="prompt-chip" data-prompt="INNOTECH 2026 – Annual Tech Fest & Project Expo" onclick="applyPrompt(this.dataset.prompt)">INNOTECH 2026 Tech Fest</button>' +
+						'<button type="button" class="prompt-chip" data-prompt="HACK-A-BIT 2026 – 36-Hour National Hackathon" onclick="applyPrompt(this.dataset.prompt)">HACK-A-BIT 2026 Hackathon</button>' +
+						'<button type="button" class="prompt-chip" data-prompt="EUPHORIA 2026 – Annual Cultural & Arts Festival" onclick="applyPrompt(this.dataset.prompt)">EUPHORIA 2026 Cultural Fest</button>' +
+						'<button type="button" class="prompt-chip" data-prompt="National School Robotics & Drone Championship" onclick="applyPrompt(this.dataset.prompt)">National Robotics Expo</button>';
+				}
+			} else {
+				if (badge) badge.innerText = 'Gemini 2.5 Flash + Docs API';
+				if (title) title.innerText = 'Google Docs Assistant';
+				if (welcomeTitle) welcomeTitle.innerText = 'What would you like me to write?';
+				if (welcomeDesc) welcomeDesc.innerHTML = 'Ask me to write any document (e.g. <em>"Write a project proposal for a full-stack AI web app"</em> or <em>"Draft an executive briefing for Q4"</em>). I will generate the full content and create a Google Doc directly in your Google Drive.';
+				chatInput.placeholder = "Ask me to write any document (e.g. 'Write a complete PRD for...')";
+				if (chipsContainer) {
+					chipsContainer.innerHTML = '<button type="button" class="prompt-chip" data-prompt="Write a Project Proposal for AI Copilot" onclick="applyPrompt(this.dataset.prompt)">Write a Project Proposal for AI Copilot</button>' +
+						'<button type="button" class="prompt-chip" data-prompt="Draft a Technical Architecture Document" onclick="applyPrompt(this.dataset.prompt)">Draft a Technical Architecture Document</button>' +
+						'<button type="button" class="prompt-chip" data-prompt="Create an Executive Summary for Q4" onclick="applyPrompt(this.dataset.prompt)">Create an Executive Summary for Q4</button>' +
+						'<button type="button" class="prompt-chip" data-prompt="Write a Client Onboarding & Welcome Guide" onclick="applyPrompt(this.dataset.prompt)">Write a Client Onboarding & Welcome Guide</button>';
+				}
+			}
+		}
+
+		function replyWithDetail(text) {
+			chatInput.value = text;
+			handleChatSubmit(new Event('submit'));
+		}
 
 		if (localStorage.getItem('gemini_api_key') && !apiKeyInput.value) {
 			apiKeyInput.value = localStorage.getItem('gemini_api_key');
@@ -1566,7 +1720,10 @@ func HandleDocsStudioUI(w http.ResponseWriter, r *http.Request) {
 			const loadingBubble = document.createElement('div');
 			loadingBubble.className = 'chat-bubble bot-bubble';
 			loadingBubble.id = 'active-loading-bubble';
-			loadingBubble.innerHTML = '<div style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:#888eff;"><span>⚡ Generating document with Gemini & syncing to Google Docs</span><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>';
+			const loadingText = currentTemplate === 'kiet' 
+				? 'Crafting KIET letterhead document & syncing to Google Docs' 
+				: 'Generating document with Gemini & syncing to Google Docs';
+			loadingBubble.innerHTML = '<div style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:#888eff;"><span>' + loadingText + '</span><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>';
 			chatMessages.appendChild(loadingBubble);
 			scrollToBottom();
 
@@ -1579,6 +1736,10 @@ func HandleDocsStudioUI(w http.ResponseWriter, r *http.Request) {
 				formData.append('email', email);
 				formData.append('folder_id', folder);
 				formData.append('name', 'Ayushman');
+				formData.append('template', currentTemplate);
+				if (currentPendingTopic) {
+					formData.append('pending_topic', currentPendingTopic);
+				}
 
 				const resp = await fetch('/admin/chat-docs', {
 					method: 'POST',
@@ -1590,6 +1751,13 @@ func HandleDocsStudioUI(w http.ResponseWriter, r *http.Request) {
 
 				const tempDiv = document.createElement('div');
 				tempDiv.innerHTML = html;
+
+				const qBox = tempDiv.querySelector('.kiet-question-box');
+				if (qBox && qBox.dataset.topic) {
+					currentPendingTopic = qBox.dataset.topic;
+				} else {
+					currentPendingTopic = '';
+				}
 				while (tempDiv.firstChild) {
 					if (tempDiv.firstChild.classList && tempDiv.firstChild.classList.contains('user-bubble')) {
 						tempDiv.removeChild(tempDiv.firstChild);
@@ -1707,16 +1875,200 @@ func HandleDirectDocChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	docPrompt := fmt.Sprintf(`System Instruction: You are an expert document author and AI Copilot for '%s'.
+	template := strings.ToLower(strings.TrimSpace(r.FormValue("template")))
+	pendingTopic := strings.TrimSpace(r.FormValue("pending_topic"))
+	lowerMsg := strings.ToLower(userMsg)
+	isKiet := (template == "kiet") || strings.Contains(lowerMsg, "kiet") || strings.Contains(lowerMsg, "manthan")
+
+	hasStudentInfo := strings.Contains(lowerMsg, "student") ||
+		strings.Contains(lowerMsg, "participat") ||
+		strings.Contains(lowerMsg, "class") ||
+		strings.Contains(lowerMsg, "eligib") ||
+		strings.Contains(lowerMsg, "b.tech") ||
+		strings.Contains(lowerMsg, "btech") ||
+		strings.Contains(lowerMsg, "school") ||
+		strings.Contains(lowerMsg, "college") ||
+		strings.Contains(lowerMsg, "grade") ||
+		strings.Contains(lowerMsg, "undergrad") ||
+		strings.Contains(lowerMsg, "stream") ||
+		strings.Contains(lowerMsg, "all institute")
+
+	hasPhoneInfo := strings.Contains(lowerMsg, "phone") ||
+		strings.Contains(lowerMsg, "number") ||
+		strings.Contains(lowerMsg, "contact") ||
+		strings.Contains(lowerMsg, "call") ||
+		strings.Contains(lowerMsg, "mobile") ||
+		strings.Contains(lowerMsg, "tel") ||
+		strings.Contains(lowerMsg, "+91") ||
+		regexp.MustCompile(`\b[6-9]\d{9}\b`).MatchString(userMsg) ||
+		regexp.MustCompile(`\b\d{10}\b`).MatchString(userMsg)
+
+	hasDateInfo := strings.Contains(lowerMsg, "date") ||
+		strings.Contains(lowerMsg, "tba") ||
+		strings.Contains(lowerMsg, "no date") ||
+		strings.Contains(lowerMsg, "announced soon") ||
+		strings.Contains(lowerMsg, "tentative") ||
+		strings.Contains(lowerMsg, "schedule") ||
+		strings.Contains(lowerMsg, "deadline") ||
+		strings.Contains(lowerMsg, "october") ||
+		strings.Contains(lowerMsg, "november") ||
+		strings.Contains(lowerMsg, "december") ||
+		strings.Contains(lowerMsg, "january") ||
+		strings.Contains(lowerMsg, "february") ||
+		strings.Contains(lowerMsg, "march") ||
+		strings.Contains(lowerMsg, "april") ||
+		strings.Contains(lowerMsg, "august") ||
+		strings.Contains(lowerMsg, "september")
+
+	hasMoneyInfo := strings.Contains(lowerMsg, "money") ||
+		strings.Contains(lowerMsg, "prize") ||
+		strings.Contains(lowerMsg, "cash") ||
+		strings.Contains(lowerMsg, "free") ||
+		strings.Contains(lowerMsg, "certificate") ||
+		strings.Contains(lowerMsg, "₹") ||
+		strings.Contains(lowerMsg, "rs ") ||
+		strings.Contains(lowerMsg, "rs.") ||
+		strings.Contains(lowerMsg, "inr") ||
+		strings.Contains(lowerMsg, "troph") ||
+		strings.Contains(lowerMsg, "award")
+
+	hasPipeSeparatedDetail := strings.Contains(userMsg, "|")
+
+	isDirectBypass := strings.Contains(lowerMsg, "skip") ||
+		strings.Contains(lowerMsg, "generate directly") ||
+		strings.Contains(lowerMsg, "use defaults") ||
+		strings.Contains(lowerMsg, "auto generate")
+
+	// If KIET template is selected/implied and user has NOT provided students, phone numbers, or dates/prizes:
+	// Ask the user conversationally for: who will participate, contact phone number, dates, and cash prizes!
+	if isKiet && !isDirectBypass && !hasPipeSeparatedDetail && (!hasStudentInfo || !hasPhoneInfo || (!hasDateInfo && !hasMoneyInfo)) {
+		topic := userMsg
+		topic = strings.TrimPrefix(topic, "🏛️ ")
+		topic = strings.TrimPrefix(topic, "🚀 ")
+		topic = strings.TrimPrefix(topic, "💻 ")
+		topic = strings.TrimPrefix(topic, "🎭 ")
+		topic = strings.TrimPrefix(topic, "🔬 ")
+		topic = strings.TrimPrefix(topic, "Write an announcement for ")
+		topic = strings.TrimPrefix(topic, "Draft an announcement for ")
+		topic = strings.TrimPrefix(topic, "Create an announcement for ")
+		topic = strings.TrimPrefix(topic, "Announce ")
+		topic = strings.TrimSpace(topic)
+
+		escapedTopic := html.EscapeString(topic)
+		escapedUserMsg := html.EscapeString(userMsg)
+		fmt.Fprintf(w, `
+			<div class="chat-bubble user-bubble">%s</div>
+			<div class="chat-bubble bot-bubble">
+				<div class="kiet-question-box" data-topic="%s">
+					<div class="bot-msg-title" style="color:#b4b8ff; font-family:'Space Grotesk',sans-serif; font-size:1rem; font-weight:700;">KIET University Letterhead Assistant</div>
+					<div style="margin-top:4px; font-size:0.9rem; line-height:1.45; color:#ffffff;">Ready to draft the official announcement letter for <strong>"%s"</strong>.</div>
+					<div style="margin-top:10px; font-size:0.84rem; color:#d1d1dc; line-height:1.6; background:rgba(0,0,0,0.35); padding:12px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.1);">
+						Please provide the key details for the official announcement letter:
+						<div style="margin-top:8px; display:flex; flex-direction:column; gap:6px; font-size:0.82rem;">
+							<div>1. <strong>Participating Students / Eligibility:</strong> (Which students will participate? e.g. Classes XI &amp; XII, B.Tech Students, All Colleges)</div>
+							<div>2. <strong>Contact Phone Number(s):</strong> (Who should be called for queries? e.g. 9817515811 / 9555993072)</div>
+							<div>3. <strong>Event Date(s) &amp; Deadline:</strong> (Specific dates, or choose <em>No Date / TBA</em>)</div>
+							<div>4. <strong>Prizes &amp; Fee:</strong> (Cash prizes, or choose <em>No Money / Free Entry (Certificates Only)</em>)</div>
+						</div>
+					</div>
+					<div style="font-size:0.75rem; color:#888eff; margin-top:12px; margin-bottom:6px; font-family:'Space Mono', monospace; font-weight:700;">QUICK CHOOSE AN OPTION:</div>
+					<div class="prompt-chips">
+						<button type="button" class="prompt-chip" onclick="replyWithDetail('%s | Students: Classes XI &amp; XII | Call: 9817515811 | Dates: 3rd &amp; 4th Oct 2026 | Cash Prizes: Rs 10,000')">Classes XI &amp; XII | Call: 9817515811 | Dates: 3rd &amp; 4th Oct 2026 | Cash Prizes: Rs 10,000</button>
+						<button type="button" class="prompt-chip" onclick="replyWithDetail('%s | Students: B.Tech &amp; College Students | Call: 9555993072 | Dates: TBA | Cash Prizes: Rs 15,000')">B.Tech &amp; College | Call: 9555993072 | Dates TBA | Cash Prizes: Rs 15,000</button>
+						<button type="button" class="prompt-chip" onclick="replyWithDetail('%s | Students: All College Students | Call: 9817515811 | Dates: 15th Nov 2026 | No Money (Free Entry, Certificates Only)')">All Colleges | Call: 9817515811 | Dates: 15th Nov 2026 | Free Entry (Certificates Only)</button>
+						<button type="button" class="prompt-chip" onclick="replyWithDetail('%s | Students: School &amp; College Students | Call: 9555993072 | No Date (TBA) | No Money (Free Entry, Certificates &amp; Trophies)')">School &amp; College | Call: 9555993072 | No Date (TBA) | No Money (Free Entry)</button>
+					</div>
+					<div style="margin-top:8px; font-size:0.75rem; color:#8e8ea0;">Or type your custom students, phone number, dates, and prizes in the message box below.</div>
+				</div>
+			</div>
+		`, escapedUserMsg, escapedTopic, escapedTopic, escapedTopic, escapedTopic, escapedTopic, escapedTopic)
+		return
+	}
+
+	effectiveTopic := userMsg
+	if pendingTopic != "" && !strings.Contains(lowerMsg, strings.ToLower(pendingTopic)) {
+		effectiveTopic = pendingTopic + " | " + userMsg
+	}
+
+	var docPrompt string
+	if isKiet {
+		docPrompt = fmt.Sprintf(`System Instruction: You are the official Document Author for KIET Deemed to be University, Delhi-NCR, Ghaziabad (Department of PR & International Relations).
+The user requested an official University Announcement letter for: "%s".
+
+CRITICAL UNIVERSITY LETTER TEMPLATE & GUIDELINES (Based on official KIET University Manthan Letterhead):
+1. HEADER: The header with official university credentials (KIET UNIVERSITY, DELHI-NCR, INDIA, Under Section 3 of the UGC Act, 1956) and centered official crest logo will be formatted automatically by the letterhead engine.
+2. TYPOGRAPHY: Formal university document style in Times New Roman throughout.
+3. OUTPUT FORMAT STRICTLY AS FOLLOWS:
+Line 1: TITLE: Invitation to Participate in <Event Name> – <Subtitle / Function Theme>
+Line 2: (empty line)
+Line 3: Respected Sir/Madam,
+Line 4: (empty line)
+Line 5: KIET Deemed to be University cordially invites the students of your esteemed institution to participate in <Event Name>, a flagship initiative aimed at fostering critical thinking, intellectual curiosity, and the spirit of healthy competition among young minds. [Tailor this invitation line to the specific participating students specified by user, e.g. "cordially invites the secondary and senior secondary students (Classes IX to XII) / undergraduate engineering students / college students of your esteemed institution"].
+Line 6: (empty line)
+Line 7: Following its successful legacy, <Event Name> returns with the theme "<Inspiring Theme>", encouraging students to explore the role of technology, innovation, science, sustainability, and emerging developments in shaping India's journey towards becoming a developed nation.
+Line 8: (empty line)
+Line 9: <Detailed description of the competition / function structure, eligibility, and how students participate (e.g. Online Qualifying Round & On-Campus Grand Finale)>.
+Line 10: (empty line)
+Line 11: Key Details:
+- Eligibility: <EXACT target classes / participating students as specified by user>
+- Streams / Departments: Science, Commerce & Humanities (or Technical branches / Computer Science / Engineering)
+- Event Date(s): <IF user specified dates, put them here. IF user specified 'no date' or 'TBA' or 'announced soon', STRICTLY write: 'Dates: To be announced soon (Tentative)'>
+- Last Date to Register: <IF user specified date, put it here. IF 'no date' or 'TBA', write: 'To be announced soon'>
+- Registration Link: https://forms.gle/kiet-registration
+- Official Website Link: https://kiet.edu/
+- For Queries & Contact: <User specified phone numbers and coordinator names>
+Line 12: (empty line)
+Line 13: <REWARDS & PRIZES SECTION:
+CRITICAL RULE FOR CASH PRIZES:
+- IF the user specified "no money", "no cash prizes", "free entry", or "certificates only":
+  DO NOT mention or invent any cash prizes or rupee amounts! Instead write:
+  Guaranteed Rewards & Recognition
+  The top-performing participants and finalists will be rewarded with:
+  - Official Merit Certificates & Mementos for Winners
+  - Recognition Trophies for Top Performing Teams
+- IF cash prizes apply, format as:
+  Exciting Cash Prizes
+  The top-performing participants will be rewarded with:
+  - Rs 10,000 each – First Winners [1st Position]
+  - Rs 6,000 each – Next Winners [2nd Position]
+  - Rs 4,000 each – Consolation [3rd Position]
+>
+Line 14: (empty line)
+Line 15: E-Certificates for all participants of <Event Name>
+Line 16: (empty line)
+Line 17: What Comes Next?
+The online round will also serve as the qualifying gateway to the On-Campus Grand Finale, tentatively scheduled for mid-October (dates to be announced soon) at the KIET Campus, Ghaziabad. For invited participants, KIET Deemed to be University will extend accommodation, hospitality, and meals upon prior intimation, making the Grand Finale an enriching academic and experiential opportunity for students.
+Line 18: (empty line)
+Line 19: We encourage eligible students to participate enthusiastically in <Event Name> and join us in inspiring young minds towards a technologically empowered Viksit Bharat@2047.
+Line 20: (empty line)
+Line 21: Warm Regards,
+Line 22: Dr. Preeti Chitkara
+Line 23: Dean
+Line 24: Department of PR & International Relations (Admission & Outreach)
+Line 25: KIET Deemed to be University
+Line 26: (empty line)
+Line 27: For Registration and Further Information
+Line 28: Website: kiet.edu
+Line 29: Contact: <User specified phone numbers e.g. 9817515811 | 9555993072, plus coordinator names if provided>
+Line 30: Email: manthan@kiet.edu | deanprir@kiet.edu | public.relations@kiet.edu
+
+CRITICAL FORMATTING RULES:
+- Do NOT use ANY asterisks (*) anywhere in the text.
+- Do NOT use ANY emojis anywhere in the text.
+- Use clean hyphens (-) for bullet points.
+- Ensure the tone is extremely formal, inspiring, and executive.`, effectiveTopic)
+	} else {
+		docPrompt = fmt.Sprintf(`System Instruction: You are an expert document author and AI Copilot for '%s'.
 The user asked: "%s".
 
 Write a comprehensive, professional, well-structured document based on their request.
 Format strictly as follows:
 Line 1: TITLE: <Clear concise document title>
 Line 2: (empty line)
-Line 3+: The full body content with clean sections, bullet points with hyphens (-), and clear paragraphs. Do NOT use any asterisks (*) anywhere in the text.`, clientName, userMsg)
+Line 3+: The full body content with clean sections, bullet points with hyphens (-), and clear paragraphs. Do NOT use any asterisks (*) or emojis anywhere in the text.`, clientName, userMsg)
+	}
 
-	log.Printf("[DirectDocsBot] Calling Gemini for query: %s", userMsg)
+	log.Printf("[DirectDocsBot] Calling Gemini for query: %s (Template: %s)", userMsg, template)
 	generatedDoc := callGeminiAPI(docPrompt, apiKey)
 
 	title := "Generated Document"
@@ -1734,28 +2086,53 @@ Line 3+: The full body content with clean sections, bullet points with hyphens (
 	re := regexp.MustCompile(`\*+`)
 	content = re.ReplaceAllString(content, "")
 
-	docURL, err := docs.CreateAndShareDoc(r.Context(), email, folderID, title, content)
+	var docURL string
+	var err error
+	if isKiet {
+		docURL, err = docs.CreateAndShareDocWithOptions(r.Context(), email, folderID, title, content, "kiet")
+	} else {
+		docURL, err = docs.CreateAndShareDocWithOptions(r.Context(), email, folderID, title, content, "")
+	}
+
 	if err == nil && docURL != "" {
-		fmt.Fprintf(w, `
-			<div class="chat-bubble user-bubble">%s</div>
-			<div class="chat-bubble bot-bubble">
-				<div class="bot-msg-title">📄 Google Doc Created: "%s"</div>
-				<div class="bot-msg-preview">%s</div>
-				<div class="doc-actions">
-					<a href="%s" target="_blank" class="doc-btn-primary">🚀 Open in Google Docs →</a>
+		if isKiet {
+			fmt.Fprintf(w, `
+				<div class="chat-bubble user-bubble">%s</div>
+				<div class="chat-bubble bot-bubble">
+					<div class="bot-msg-title" style="color:#b4b8ff;">KIET Google Doc Created: "%s"</div>
+					<div style="font-size:0.75rem; color:#f47920; font-family:'Space Mono', monospace; margin-bottom:8px;">Styled with Official KIET University Letterhead &amp; Times New Roman</div>
+					<div class="bot-msg-preview kiet-preview">%s</div>
+					<div class="doc-actions">
+						<a href="%s" target="_blank" class="doc-btn-primary" style="background:#f47920; color:#ffffff; border-color:#020034;">Open KIET Google Doc →</a>
+					</div>
 				</div>
-			</div>
-		`, userMsg, title, strings.ReplaceAll(content, "\n", "<br>"), docURL)
+			`, userMsg, title, strings.ReplaceAll(content, "\n", "<br>"), docURL)
+		} else {
+			fmt.Fprintf(w, `
+				<div class="chat-bubble user-bubble">%s</div>
+				<div class="chat-bubble bot-bubble">
+					<div class="bot-msg-title">Google Doc Created: "%s"</div>
+					<div class="bot-msg-preview">%s</div>
+					<div class="doc-actions">
+						<a href="%s" target="_blank" class="doc-btn-primary">Open in Google Docs →</a>
+					</div>
+				</div>
+			`, userMsg, title, strings.ReplaceAll(content, "\n", "<br>"), docURL)
+		}
 	} else {
 		log.Printf("[DirectDocsBot] Notice on Google Doc creation: %v", err)
+		previewClass := "bot-msg-preview"
+		if isKiet {
+			previewClass = "bot-msg-preview kiet-preview"
+		}
 		fmt.Fprintf(w, `
 			<div class="chat-bubble user-bubble">%s</div>
 			<div class="chat-bubble bot-bubble">
-				<div class="bot-msg-title">📄 Drafted Document: "%s"</div>
-				<div class="bot-msg-preview">%s</div>
-				<div class="bot-notice">(Notice: Google Drive sync error: %v)</div>
+				<div class="bot-msg-title">Drafted Document: "%s"</div>
+				<div class="%s">%s</div>
+				<div class="bot-notice">(Notice: Google Drive sync notice: %v)</div>
 			</div>
-		`, userMsg, title, strings.ReplaceAll(content, "\n", "<br>"), err)
+		`, userMsg, title, previewClass, strings.ReplaceAll(content, "\n", "<br>"), err)
 	}
 }
 
