@@ -14,6 +14,7 @@ import (
 
 	"universal-copilot/internal/calendar"
 	"universal-copilot/internal/database"
+	"universal-copilot/internal/docs"
 )
 
 // Gemini API Request/Response Structures
@@ -724,9 +725,87 @@ func HandleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Check if user is asking about schedule, availability, meetings, free slots, or booking
-	calendarInfo := ""
+	// 2. Check if user is asking to create / write a Google Document
 	lowerMsg := strings.ToLower(userMsg)
+	isDocRequest := strings.Contains(lowerMsg, "write a doc") ||
+		strings.Contains(lowerMsg, "create a doc") ||
+		strings.Contains(lowerMsg, "draft a doc") ||
+		strings.Contains(lowerMsg, "make a doc") ||
+		strings.Contains(lowerMsg, "generate a doc") ||
+		strings.Contains(lowerMsg, "write a document") ||
+		strings.Contains(lowerMsg, "create a document") ||
+		strings.Contains(lowerMsg, "draft a document") ||
+		strings.Contains(lowerMsg, "make a document") ||
+		strings.Contains(lowerMsg, "generate a document") ||
+		strings.Contains(lowerMsg, "google doc") ||
+		strings.Contains(lowerMsg, "save to doc") ||
+		strings.Contains(lowerMsg, "export to doc") ||
+		strings.Contains(lowerMsg, "write document") ||
+		strings.Contains(lowerMsg, "create document")
+
+	if isDocRequest {
+		apiKey := database.GetAPIKeyForApp(appID)
+		if apiKey == "" {
+			apiKey = os.Getenv("GEMINI_API_KEY")
+		}
+
+		contextData := database.GetContextForApp(appID, userMsg)
+		docPrompt := fmt.Sprintf(`System Instruction: You are an expert document author and assistant for '%s'.
+The user requested: "%s".
+Reference knowledge context:
+%s
+
+Generate a professional, structured document based on their request.
+Format your output strictly as follows:
+Line 1: TITLE: <A descriptive title for the document>
+Line 2: (empty line)
+Line 3+: The full body content of the document. Use clean headings (ALL CAPS or numbered), neat bullet points with hyphens (-), and clear paragraphs. Do NOT use any asterisks (*) anywhere.`, clientName, userMsg, contextData)
+
+		log.Printf("[Copilot] Generating Google Doc with Gemini for App ID '%s'...", appID)
+		generatedDoc := callGeminiAPI(docPrompt, apiKey)
+
+		title := "Generated Document"
+		content := generatedDoc
+
+		lines := strings.Split(generatedDoc, "\n")
+		if len(lines) > 0 && strings.HasPrefix(strings.ToUpper(lines[0]), "TITLE:") {
+			title = strings.TrimSpace(strings.TrimPrefix(lines[0], "TITLE:"))
+			title = strings.TrimSpace(strings.TrimPrefix(title, "Title:"))
+			if len(lines) > 1 {
+				content = strings.TrimSpace(strings.Join(lines[1:], "\n"))
+			}
+		}
+
+		re := regexp.MustCompile(`\*+`)
+		content = re.ReplaceAllString(content, "")
+
+		docURL, err := docs.CreateAndShareDoc(r.Context(), ownerEmail, "", title, content)
+		var responseText string
+		if err == nil && docURL != "" {
+			responseText = fmt.Sprintf("📄 I have drafted and created your Google Document: \"%s\"\n\nClick below to open, edit, or share it in Google Docs:\n\n<div class=\"copilot-chips\" style=\"margin-top:10px;\"><a href=\"%s\" target=\"_blank\" class=\"copilot-chip-btn\" style=\"text-decoration:none; display:inline-flex; align-items:center; gap:6px; color:#ffffff; background:#29292e;\">🚀 Open in Google Docs →</a></div>", title, docURL)
+		} else {
+			log.Printf("[Docs] Note: Created doc error or fallback: %v", err)
+			responseText = fmt.Sprintf("📄 Here is the drafted content for \"%s\":\n\n%s", title, content)
+		}
+
+		responseHTML := fmt.Sprintf(`
+			<div class="copilot-chat-bubble" style="margin-top:8px; text-align:right;">
+				<span style="background:#2e2e2e; border:1px solid rgba(255,255,255,0.1); color:#ffffff; padding:6px 10px; border-radius:6px; font-size:12px; display:inline-block;">%s</span>
+			</div>
+			<div class="copilot-chat-bubble" style="margin-top:8px; text-align:left;">
+				<div style="background:#242424; border:1px solid rgba(255,255,200,0.08); padding:8px 12px; border-radius:6px; font-size:12px; color:#e1e1e6; white-space:pre-wrap; margin-top:4px;">%s</div>
+			</div>
+			<script>
+				var elem = document.getElementById('copilot-chat-history');
+				elem.scrollTop = elem.scrollHeight;
+			</script>
+		`, userMsg, responseText)
+		fmt.Fprint(w, responseHTML)
+		return
+	}
+
+	// 3. Check if user is asking about schedule, availability, meetings, free slots, or booking
+	calendarInfo := ""
 	if strings.Contains(lowerMsg, "free") || strings.Contains(lowerMsg, "available") || strings.Contains(lowerMsg, "schedule") || strings.Contains(lowerMsg, "book") || strings.Contains(lowerMsg, "meet") || strings.Contains(lowerMsg, "call") || strings.Contains(lowerMsg, "time") || strings.Contains(lowerMsg, "slot") || strings.Contains(lowerMsg, "appointment") {
 		calendarInfo = calendar.GetAvailableSlotsSummary(r.Context(), ownerEmail, 7)
 	}

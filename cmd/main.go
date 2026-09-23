@@ -54,8 +54,11 @@ func main() {
 	http.HandleFunc("/copilot/embed", handlers.HandleEmbed)
 	http.HandleFunc("/copilot/chat", handlers.HandleChat)
 
-	// 3. Register Admin Ingestion Routes
+	// 3. Register Admin Ingestion & Direct Chat Routes
 	http.HandleFunc("/admin", handlers.HandleAdminUI)
+	http.HandleFunc("/admin/configure", handlers.HandleConfigureUI)
+	http.HandleFunc("/admin/docs", handlers.HandleDocsStudioUI)
+	http.HandleFunc("/admin/chat-docs", handlers.HandleDirectDocChat)
 	http.HandleFunc("/admin/ingest", handlers.HandleIngest)
 
 	// 4. Register Health / Ping Route
